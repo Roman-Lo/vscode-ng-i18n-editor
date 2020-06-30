@@ -1,4 +1,3 @@
-
 declare namespace i18nWebView // i18n-webview
 {
   interface ListXliffFilesCommand extends ExtEventBase {
@@ -7,6 +6,7 @@ declare namespace i18nWebView // i18n-webview
 
   interface ListXliffFilesResultEvent extends ExtResultCallbackEvent {
     readonly dir: string;
+    readonly locales: string[];
     readonly files: {
       name: string;
       path: string;
@@ -15,6 +15,7 @@ declare namespace i18nWebView // i18n-webview
 
   interface LoadXliffFileCommand extends ExtEventBase {
     readonly xliffFile: string;
+    readonly locale: string;
   }
 
   interface LoadXliffFileResultEvent extends ExtResultCallbackEvent {
@@ -82,5 +83,50 @@ declare namespace i18nWebView // i18n-webview
     readonly data: I18nTranslateWebViewCommandMap[K];
   }
 
+  interface ITransUnitView extends i18n.TransUnit {
+    _updating: boolean;
+    _commandHash: string | null;
+    _error?: string | null;
+    __key_for_search__: string;
+  }
+
+  interface IWebViewTransUnitTableData {
+    sourceLocale: string;
+    targetLocale: string;
+    columns: { [key: string]: any }[];
+    transUnits: ITransUnitView[];
+    loaded: boolean;
+  }
+
+  interface IWebViewPageData {
+    settings: {
+      mode: 'git-control' | 'db-control';
+      translationSaveOn: 'blur' | 'change' | 'manual';
+    };
+    xliffFiles: {
+      name: string;
+      path: string;
+    }[];
+    locales: string[];
+    selectedXliffFile: string | null;
+    selectedTargetLocale: string | null;
+    xliffFileLoading: boolean;
+    searchOptions: {
+      key: string | null;
+      state: i18n.TranslationStateType | 'all';
+      pageSize: number;
+      pageNum: number;
+    }
+    transUnitTable: IWebViewTransUnitTableData;
+    pagination: {
+      totalAmount: number;
+      pageSize: number;
+      pageNum: number;
+    };
+    // counters?: {
+    //   needHandle: number;
+    //   translated: number;
+    // }
+  }
 
 }

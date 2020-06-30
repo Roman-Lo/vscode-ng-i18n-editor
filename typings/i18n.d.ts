@@ -14,8 +14,8 @@ declare namespace i18n {
 
   interface TransUnit {
     key: string;
-    description: string;
-    meaning: string;
+    description?: string;
+    meaning?: string;
 
     source: string;
     source_identifier: string;

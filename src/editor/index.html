@@ -12,14 +12,22 @@
     [pending] {
       display: none !important;
     }
+
+    [data-page-section] {
+      margin-bottom: 10px;
+    }
+
+    [data-page-section]:last-child {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 
 <body>
   <div id="app" pending>
     <a-layout>
-      <a-layout-content>
-        <a-row type="flex">
+      <a-layout-content :style="{ margin: '10px', padding: '12px', background: '#fff', minHeight: '280px' }">
+        <a-row type="flex" data-page-section="filter-section">
           <a-col :span="24">
             <label>Xliff Location:</label>
             <a-select style="min-width: 250px" placeholder="Select a file" @change="onSelectedFileChange">
@@ -27,22 +35,73 @@
                 {{ item.name }}
               </a-select-option>
             </a-select>
-            <a-button @click="loadXliffFiles">Reload</a-button>
+            <label>Target Locale:</label>
+            <a-select style="width: 120px;" placeholder="Select a target locale" @change="onSelectedTargetLocale">
+              <a-select-option v-for="item in locales" :key="item">
+                {{ item }}
+              </a-select-option>
+            </a-select>
+            <a-button v-if="transUnitTable.loaded" @click="loadXliffContent">Reload</a-button>
+          </a-col>
+        </a-row>
+        <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
+          <a-col :span="24">
+            <a-spin :spinning="xliffFileLoading" tip="Loading...">
+              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" bordered>
+                <!-- title slots -->
+                <span slot="sourceTitle">Source ({{ transUnitTable.sourceLocale }})</span>
+                <span slot="targetTitle">Translation ({{ transUnitTable.targetLocale }})</span>
+                <!-- row data slots -->
+                <div slot="sourceColumn" slot-scope="record">
+                  {{ record.key }}
+                </div>
+                <div slot="targetColumn" slot-scope="record">
+                  <div contenteditable v-html="record.target" @blur="targetTextBlur(record, $event)"></div>
+                </div>
+                <div slot="recordActions" slot-scope="record">
+
+                </div>
+              </a-table>
+            </a-spin>
+          </a-col>
+        </a-row>
+        <a-row v-else>
+          <a-col :span="24">
+            <a-alert message="No Xliff File Selected"
+              description="Please select a xliff file and a target locale to start translation." type="info"
+              show-icon />
           </a-col>
         </a-row>
       </a-layout-content>
     </a-layout>
   </div>
   <script>
+    const transUnitTableColumns = [
+      {
+        key: 'source',
+        slots: { title: 'sourceTitle' },
+        scopedSlots: { customRender: 'sourceColumn' },
+      },
+      {
+        key: 'target',
+        slots: { title: 'targetTitle' },
+        scopedSlots: { customRender: 'targetColumn' },
+      },
+      {
+        key: 'actions',
+        title: 'Actions',
+        scopedSlots: { customRender: 'recordActions' },
+      }
+    ];
     var mockDataModuleName = './mock-data';
-    var isInVsCodeIDE = false;
-    var vscode = null;
-    try {
-      vscode = acquireVsCodeApi();
-      isInVsCodeIDE = true;
-    } catch (e) {
+    var isInVsCodeIDE = typeof acquireVsCodeApi === 'function';
+    // var vscode = null;
+    // try {
+    //   vscode = acquireVsCodeApi();
+    //   isInVsCodeIDE = true;
+    // } catch (e) {
 
-    }
+    // }
     let mainJsLocation = '#main#';
     let mockDataJsLocation = '#mockData#';
     if (mainJsLocation === '#main#') {

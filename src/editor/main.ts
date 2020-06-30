@@ -1,58 +1,39 @@
 import * as antd from 'ant-design-vue';
+import { Webview } from 'vscode';
 import Vue from 'vue';
 import { MOCK_DATA } from './mock-data';
 
-if (!isInVsCodeIDE) {
-  console.log(MOCK_DATA.a);
-}
-
-interface ITransUnitView extends i18n.TransUnit {
-  updating: boolean;
-  commandHash: string | null;
-  error?: string | null;
-
-  __key_for_search__: string;
-}
-
-interface IWebViewPageData {
-  settings: {
-    mode: 'git-control' | 'db-control';
-    translationSaveOn: 'blur' | 'change' | 'manual';
-  };
-  xliffFiles: {
-    name: string;
-    path: string;
-  }[];
-  selectedXliffFile: string | null;
-  xliffFileLoading: boolean;
-  searchOptions: {
-    key: string | null;
-    state: i18n.TranslationStateType | 'all';
-    pageSize: number;
-    pageNum: number;
+declare var isInVsCodeIDE: boolean;
+declare var transUnitTableColumns: { [key: string]: any }[];
+let vscode: Webview | null = null;
+try {
+  if (isInVsCodeIDE) {
+    vscode = acquireVsCodeApi();
   }
-
-
-  transUnits: ITransUnitView[];
-  totalAmount: number;
-  pageSize: number;
-  pageNum: number;
-  // counters?: {
-  //   needHandle: number;
-  //   translated: number;
-  // }
+} catch (e) {
+  isInVsCodeIDE = false;
 }
 
+if (!isInVsCodeIDE) {
+  console.log(`using mock data:`, MOCK_DATA);
+  if (MOCK_DATA) {
+    MOCK_DATA.transUnitTable.columns = transUnitTableColumns;
+  }
+} else {
+
+}
 
 export function bootstrap() {
   console.log('loaded!');
 
-  let _transUnits: ITransUnitView[] = [];
-  let _transUnitsByKey: { [key: string]: ITransUnitView } = {};
+  let _transUnits: i18nWebView.ITransUnitView[] = [];
+  let _transUnitsByKey: { [key: string]: i18nWebView.ITransUnitView } = {};
 
-  const pageData: IWebViewPageData = {
+  const pageData: i18nWebView.IWebViewPageData = isInVsCodeIDE ? {
     xliffFiles: [],
+    locales: [],
     selectedXliffFile: null,
+    selectedTargetLocale: null,
     xliffFileLoading: false,
     settings: {
       mode: 'git-control',
@@ -64,11 +45,19 @@ export function bootstrap() {
       pageNum: 1,
       pageSize: 10,
     },
-    transUnits: [],
-    totalAmount: 0,
-    pageNum: 1,
-    pageSize: 10,
-  };
+    transUnitTable: {
+      sourceLocale: '',
+      targetLocale: '',
+      columns: transUnitTableColumns,
+      transUnits: [],
+      loaded: false,
+    },
+    pagination: {
+      totalAmount: 0,
+      pageNum: 1,
+      pageSize: 10,
+    }
+  } : MOCK_DATA;
   Vue.use(antd);
   var app = new Vue({
     el: '#app',
@@ -78,37 +67,57 @@ export function bootstrap() {
       this.loadXliffFiles();
     },
     methods: {
+      // ui event triggers
       onSelectedFileChange(file: string) {
         this.selectedXliffFile = file;
         this.loadXliffContent();
       },
+      onSelectedTargetLocale(locale: string) {
+        this.selectedTargetLocale = locale;
+        this.loadXliffContent();
+      },
+      targetTextBlur(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
+        record.target = ($event.target as Element).innerHTML;
+        console.log(`key: ${record.key}, translation updated to: ${record.target}`);
+      },
 
+      // command caller
       loadXliffFiles() {
         sendCommand('list-xliff-files', Object.assign(generateCommandBase(), {
-          dir: '.'
+          dir: '.',
         }));
       },
       loadXliffContent() {
         const file = pageData.selectedXliffFile;
-        if (file) {
+        const locale = pageData.selectedTargetLocale;
+        if (file && locale) {
+          this.xliffFileLoading = true;
+          this.transUnitTable.loaded = false;
           sendCommand('load-xliff-file', Object.assign(generateCommandBase(), {
-            xliffFile: file
+            xliffFile: file,
+            locale: locale
           }));
+          if (MOCK_DATA) {
+            setTimeout(() => {
+              this.xliffFileLoading = false;
+              this.transUnitTable.loaded = true;
+            }, 1000);
+          }
         }
       },
-      markAsTranslated(transUnit: ITransUnitView) {
+      markAsTranslated(transUnit: i18nWebView.ITransUnitView) {
         transUnit.state = 'translated';
         this.updateTransUnit(transUnit);
       },
-      markAsSignedOff(transUnit: ITransUnitView) {
+      markAsSignedOff(transUnit: i18nWebView.ITransUnitView) {
         transUnit.state = 'signed-off';
         this.updateTransUnit(transUnit);
       },
-      updateTransUnit(transUnit: ITransUnitView) {
+      updateTransUnit(transUnit: i18nWebView.ITransUnitView) {
         if (pageData.selectedXliffFile) {
           let cmdBase = generateCommandBase();
-          transUnit.updating = true;
-          transUnit.commandHash = cmdBase.hash;
+          transUnit._updating = true;
+          transUnit._commandHash = cmdBase.hash;
           sendCommand('update-trans-unit',
             Object.assign(cmdBase, {
               xliffFile: pageData.selectedXliffFile,
@@ -122,7 +131,7 @@ export function bootstrap() {
       },
       triggerReady() {
         if (isInVsCodeIDE) {
-          vscode.postMessage({
+          vscode?.postMessage({
             command: 'ready',
             data: null
           });
@@ -133,13 +142,13 @@ export function bootstrap() {
   });
 
   var errorDetect = (data: ExtResultCallbackEvent) => {
-    // 指令级别失败
+    // upper level error
     if (data.error) {
       app.$error({
-        title: '命令执行失败',
+        title: 'Command Execution Failed',
         content: `
           <div>
-            <p>命令 '${data.commandName}' 执行失败：${data.error.message} [${data.error.code}]. Hash: ${data.hash}.</p>
+            <p>Failed to execute: '${data.commandName}', error: ${data.error.message} [${data.error.code}]. Hash: ${data.hash}.</p>
           </div>
         `
       });
@@ -152,26 +161,34 @@ export function bootstrap() {
     'list-xliff-files-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['list-xliff-files-loaded']) => {
       if (errorDetect(data)) {
         pageData.xliffFiles = data.files;
+        pageData.locales = data.locales;
         if (pageData.selectedXliffFile && data.files.findIndex(x => x.path === pageData.selectedXliffFile) < 0) {
           // clear data
           pageData.selectedXliffFile = null;
           _transUnits = [];
           _transUnitsByKey = {};
-          pageData.transUnits = [];
-          pageData.pageNum = 1;
-          pageData.totalAmount = 0;
+          pageData.transUnitTable.sourceLocale = '';
+          pageData.transUnitTable.targetLocale = '';
+          pageData.transUnitTable.transUnits = [];
+          pageData.pagination.totalAmount = 0;
+          pageData.pagination.pageNum = 1;
         }
       }
     },
     'xliff-file-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['xliff-file-loaded']) => {
-      if (errorDetect(data) && pageData.selectedXliffFile === data.xliffFile) {
-        let transUnits: ITransUnitView[] = [];
-        let transUnitsByKey: { [key: string]: ITransUnitView } = {};
+      pageData.xliffFileLoading = false;
+      pageData.transUnitTable.loaded = true;
+      if (errorDetect(data) &&
+        pageData.selectedXliffFile === data.xliffFile &&
+        pageData.selectedTargetLocale === data.targetLangCode
+      ) {
+        let transUnits: i18nWebView.ITransUnitView[] = [];
+        let transUnitsByKey: { [key: string]: i18nWebView.ITransUnitView } = {};
         data.transUnits.forEach(t => {
-          let viewObj: ITransUnitView = Object.assign(t, {
-            updating: false,
-            commandHash: null,
-            error: null,
+          let viewObj: i18nWebView.ITransUnitView = Object.assign(t, {
+            _updating: false,
+            _commandHash: null,
+            _error: null,
             __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`
           });
           transUnits.push(viewObj);
@@ -179,10 +196,14 @@ export function bootstrap() {
         });
         _transUnits = transUnits;
         _transUnitsByKey = transUnitsByKey;
-        pageData.totalAmount = _transUnits.length;
-        pageData.pageNum = 1;
-        pageData.transUnits = _transUnits.slice(pageData.pageNum, Math.min(pageData.pageSize, _transUnits.length));
-        pageData.xliffFileLoading = false;
+        pageData.transUnitTable.sourceLocale = data.sourceLangCode;
+        pageData.transUnitTable.targetLocale = data.targetLangCode;
+        pageData.pagination.totalAmount = _transUnits.length;
+        pageData.pagination.pageNum = 1;
+        const {
+          totalAmount, pageNum, pageSize
+        } = pageData.pagination;
+        pageData.transUnitTable.transUnits = _transUnits.slice(pageNum, Math.min(pageSize, totalAmount));
       }
     },
     'trans-unit-code-ctx-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['trans-unit-code-ctx-loaded']) => {
@@ -197,10 +218,10 @@ export function bootstrap() {
           if (!tar) {
             return; // skip if not found;
           } else {
-            if (tar.commandHash === data.commandHash) {
+            if (tar._commandHash === data.commandHash) {
               // hash matched!
-              tar.updating = false;
-              tar.error = data.errors[transUnit.key];
+              tar._updating = false;
+              tar._error = data.errors[transUnit.key];
             }
           }
         });
@@ -221,7 +242,8 @@ export function bootstrap() {
           onOk() {
             let cmdBase = generateCommandBase();
             sendCommand('load-xliff-file', Object.assign(cmdBase, {
-              xliffFile: data.xliffFile
+              xliffFile: data.xliffFile,
+              locale: data.targetLangCode
             }));
           }
         });
@@ -253,7 +275,7 @@ export function bootstrap() {
   function sendCommand<K extends i18nWebView.CommandName>(
     name: K, command: i18nWebView.I18nTranslateWebViewCommandMap[K]
   ) {
-    if (isInVsCodeIDE) {
+    if (isInVsCodeIDE && vscode) {
       vscode.postMessage({
         command: name,
         data: command

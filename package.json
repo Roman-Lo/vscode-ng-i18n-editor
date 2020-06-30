@@ -20,6 +20,7 @@
 		"Other"
 	],
 	"activationEvents": [
+		"workspaceContains:/.ngi18nconfig",
 		"workspaceContains:.ngI18nExt"
 	],
 	"main": "./out/extension.js",

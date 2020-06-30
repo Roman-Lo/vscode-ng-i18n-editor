@@ -52,6 +52,7 @@ export class EditorCommandHanlder {
                 'list-xliff-files', command
             ),
             dir: detectionRootFolder,
+            locales: this.setting.locales,
             files: this.setting.editor.messageLocations.map(i => {
                 return {
                     name: i,
@@ -64,6 +65,7 @@ export class EditorCommandHanlder {
 
     loadXliffFile(command: i18nWebView.LoadXliffFileCommand) {
         const file = command.xliffFile;
+        const tarLocale = command.locale;
         fs.readFile(file, { encoding: 'utf8' }, (err, data) => {
             let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
             if (err) {
@@ -71,15 +73,15 @@ export class EditorCommandHanlder {
                 result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
             } else {
                 const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(data, '');
-                if (errors && errors.length > 0) {
-                    const errMsg = `failed to load trans units from ${file}. Errors: ${errors.join('; ')}`;
+                if (errors && errors.length > 0 || !sourceLocale) {
+                    const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
                     result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
                 } else {
                     result = {
                         ...this.buildCallbackResultBase('xliff-file-loaded', command),
                         xliffFile: file,
-                        sourceLangCode: sourceLocale || '',
-                        targetLangCode: '',
+                        sourceLangCode: sourceLocale,
+                        targetLangCode: tarLocale,
                         transUnits: Object.values(transUnitByMsgId),
                     };
                 }

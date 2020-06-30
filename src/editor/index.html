@@ -1,2 +1,145 @@
+<!DOCTYPE html>
 <html>
+
+<head>
+  <title>Angular I18n Xliff Editor</title>
+  <style>
+    html,
+    body {
+      padding: 0;
+    }
+
+    [pending] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" pending>
+    <a-layout>
+      <a-layout-content>
+        Hey!
+      </a-layout-content>
+    </a-layout>
+  </div>
+  <script>
+    var mockDataModuleName = './mock-data';
+    var isInVsCodeIDE = false;
+    var vscode = null;
+    try {
+      vscode = acquireVsCodeApi();
+      isInVsCodeIDE = true;
+    } catch (e) {
+
+    }
+    let mainJsLocation = '#main#';
+    let mockDataJsLocation = '#mockData#';
+    if (mainJsLocation === '#main#') {
+      mainJsLocation = './main.js';
+    }
+    if (mockDataJsLocation === '#mockData#') {
+      mockDataJsLocation = mockDataModuleName + '.js';
+    }
+    const localResources = {
+      // localCss: '../../out/i18nTranslateWebView/main.css',
+      antdCss: '../../libs/ant-design-vue/1.6.2/antd.min.css',
+      antdJs: '../../libs/ant-design-vue/1.6.2/antd.js',
+      vueJs: '../../libs/vue/2.6.11/vue.js',
+      momentJs: '../../libs/moment/2.27.0/moment-with-locales.min.js',
+    };
+    const config = {
+      antdCss: '#vueAntdCssSrc#',
+      antdJs: '#vueAntdJsSrc#',
+      vueJs: '#vueJsSrc#',
+      momentJs: '#momentJsSrc#',
+      // localCss: '#localCssSrc#',
+    };
+
+    config.antdCss = config.antdCss !== '#vueAntdCssSrc#' ? config.antdCss : localResources.antdCss;
+    config.antdJs = config.antdJs !== '#vueAntdJsSrc#' ? config.antdJs : localResources.antdJs;
+    config.vueJs = config.vueJs !== '#vueJsSrc#' ? config.vueJs : localResources.vueJs;
+    config.momentJs = config.momentJs !== '#momentJsSrc#' ? config.momentJs : localResources.momentJs;
+    const states = [false, false, false, false];
+
+
+    let exports = window.exports || undefined;
+    let require = window.require || undefined;
+
+    var loadAntd = function () {
+      if (states[0] && states[1] && states[2]) {
+        loadScriptOrStyle('script', config.antdJs, () => {
+          if (!exports) {
+            exports = { "__esModule": true };
+          }
+          if (!require) {
+            require = function (m) {
+              return require.modules[m];
+            }
+            require.modules = {};
+            require.modules['vue'] = { default: Vue };
+            require.modules['ant-design-vue'] = antd;
+          }
+
+
+          var startApp = function (mockData) {
+            require.modules[mockDataModuleName] = mockData;
+            loadScriptOrStyle('script', mainJsLocation, function () {
+              bootstrap();
+            });
+          }
+
+          if (isInVsCodeIDE) {
+            startApp(null);
+          } else {
+            loadScriptOrStyle('script', mockDataJsLocation, () => {
+              startApp({ 'MOCK_DATA': exports.MOCK_DATA });
+            });
+          }
+        });
+      }
+    }
+
+    loadScriptOrStyle('script', config.momentJs, () => {
+      states[0] = true;
+      loadAntd();
+    });
+
+    loadScriptOrStyle('script', config.vueJs, () => {
+      states[1] = true;
+      loadAntd();
+    });
+
+    loadScriptOrStyle('style', config.antdCss, () => {
+      states[2] = true;
+      loadAntd();
+    });
+
+    function loadScriptOrStyle(type, src, cb) {
+      var head = document.getElementsByTagName('head')[0];
+      var tag = null;
+      if (type === 'script') {
+        tag = document.createElement('script');
+        tag.type = 'text/javascript';
+        tag.src = src;
+      } else if (type === 'style') {
+        tag = document.createElement('link');
+        tag.rel = 'stylesheet';
+        tag.href = src;
+      }
+
+      if (tag != null) {
+        // then bind the event to the callback function 
+        // there are several events for cross browser compatibility
+        var cbFunc = function () {
+          cb();
+        };
+        tag.onreadystatechange = cbFunc;
+        tag.onload = cbFunc;
+        head.appendChild(tag);
+      }
+    }
+  </script>
+</body>
+
 </html>

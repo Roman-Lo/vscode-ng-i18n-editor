@@ -19,7 +19,17 @@
   <div id="app" pending>
     <a-layout>
       <a-layout-content>
-        Hey!
+        <a-row type="flex">
+          <a-col :span="24">
+            <label>Xliff Location:</label>
+            <a-select style="min-width: 250px" placeholder="Select a file" @change="onSelectedFileChange">
+              <a-select-option v-for="item in xliffFiles" :key="item.path">
+                {{ item.name }}
+              </a-select-option>
+            </a-select>
+            <a-button @click="loadXliffFiles">Reload</a-button>
+          </a-col>
+        </a-row>
       </a-layout-content>
     </a-layout>
   </div>

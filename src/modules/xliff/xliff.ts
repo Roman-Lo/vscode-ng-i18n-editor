@@ -18,32 +18,14 @@ const _UNIT_TAG = 'trans-unit';
 const _CONTEXT_GROUP_TAG = 'context-group';
 const _CONTEXT_TAG = 'context';
 
+const _TARGET_STATE_ATTR = 'state';
+
 
 enum ContextTypeEnum {
   SOURCE_FILE = 'sourcefile',
   LINE_NUMBER = 'linenumber'
 }
 
-export interface IXliffContextGroup {
-  sourcefile: string;
-  linenumber: number;
-}
-
-export interface IXliffTransUnitContent {
-  id: string;
-  srcHtml: string;
-  tarHtml: string;
-  description: string;
-  meaning: string;
-  ctxGroups: IXliffContextGroup[];
-}
-
-export interface IXliffTransUnitLoadResult {
-  sourceLocale: string,
-  targetLocale: string,
-  transUnitByMsgId: { [msgId: string]: IXliffTransUnitContent },
-  errors?: I18nError[],
-}
 
 export class Xliff {
 
@@ -56,7 +38,7 @@ export class Xliff {
    * @param simplifyMode when `true`: will not write context groups, description and meanding into the xliff content.
    */
   static writeTransUnits(
-    items: IXliffTransUnitContent[],
+    items: i18n.TransUnit[],
     sourceLocale: string,
     targetLocale: string,
     simplifyMode: boolean = false
@@ -64,35 +46,39 @@ export class Xliff {
     const transUnits: xml.Node[] = [];
 
     items.forEach(item => {
-      const transUnit = new xml.Tag(_UNIT_TAG, { id: item.id, datatype: 'html' });
+      const transUnit = new xml.Tag(_UNIT_TAG, { id: item.key, datatype: 'html' });
 
       const sourceTextNode = new xml.Text('');
-      sourceTextNode.value = item.srcHtml;
+      sourceTextNode.value = item.source;
 
       transUnit.children.push(
         new xml.CR(8), new xml.Tag(_SOURCE_TAG, {}, [sourceTextNode]),
       );
 
-      if (item.tarHtml) {
+      if (item.target) {
         const targetTextNode = new xml.Text('');
-        targetTextNode.value = item.tarHtml;
+        const targetNodeAttrs: any = {};
+        if (item.state) {
+          targetNodeAttrs[_TARGET_STATE_ATTR] = item.state;
+        }
+        targetTextNode.value = item.target;
         transUnit.children.push(
-          new xml.CR(8), new xml.Tag(_TARGET_TAG, {}, [targetTextNode]),
-        )
+          new xml.CR(8), new xml.Tag(_TARGET_TAG, targetNodeAttrs, [targetTextNode]),
+        );
       }
 
       if (!simplifyMode) {
         let contextTags: xml.Node[] = [];
-        item.ctxGroups.forEach((ctxGroup) => {
+        item.contextGroups.forEach((ctxGroup) => {
           let contextGroupTag = new xml.Tag(_CONTEXT_GROUP_TAG, { purpose: 'location' });
           contextGroupTag.children.push(
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'sourcefile' }, [new xml.Text(ctxGroup.sourcefile)]
+              _CONTEXT_TAG, { 'context-type': 'sourcefile' }, [new xml.Text(ctxGroup.sourceFile)]
             ),
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'linenumber' }, [new xml.Text(`${ctxGroup.linenumber}`)]
+              _CONTEXT_TAG, { 'context-type': 'linenumber' }, [new xml.Text(`${ctxGroup.lineNumber}`)]
             ),
             new xml.CR(8),
           );
@@ -162,9 +148,10 @@ class XliffParser implements mlAst.Visitor {
   private _unitMlId !: string | null;
   private _unitMlSourceString !: string | null;
   private _unitMlTargetString !: string | null;
+  private _unitMlTargetState !: i18n.TranslationStateType | null;
   private _unitMlDescription !: string | null;
   private _unitMlMeaning !: string | null;
-  private _unitMlContextGroups !: IXliffContextGroup[];
+  private _unitMlContextGroups !: i18n.TransUnitContextGroup[];
 
   private _unitMlCtxGroupSrcFile !: string | null;
   private _unitMlCtxGroupLineNumber !: number | null;
@@ -172,7 +159,7 @@ class XliffParser implements mlAst.Visitor {
   // TODO(issue/24571): remove '!'.
   private _errors !: I18nError[];
   // TODO(issue/24571): remove '!'.
-  private _transUnitByMsgId !: { [msgId: string]: IXliffTransUnitContent };
+  private _transUnitByMsgId !: { [msgId: string]: i18n.TransUnit };
 
   private _locale: string | null = null;
   private _srcLocale: string | null = null;
@@ -205,6 +192,7 @@ class XliffParser implements mlAst.Visitor {
         this._unitMlTargetString = null!;
         this._unitMlDescription = null!;
         this._unitMlMeaning = null!;
+        this._unitMlTargetState = null!;
         this._unitMlContextGroups = [];
         const idAttr = element.attrs.find((attr) => attr.name === 'id');
         if (!idAttr) {
@@ -216,12 +204,15 @@ class XliffParser implements mlAst.Visitor {
           } else {
             mlAst.visitAll(this, element.children, null);
             this._transUnitByMsgId[this._unitMlId] = {
-              id: this._unitMlId,
-              srcHtml: StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString),
-              tarHtml: StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString),
+              key: this._unitMlId,
+              source: StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString),
+              source_identifier: '',
+              target: StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString),
+              target_identifier: '',
+              state: this._unitMlTargetState || undefined,
               description: this._unitMlDescription,
               meaning: this._unitMlMeaning,
-              ctxGroups: this._unitMlContextGroups
+              contextGroups: this._unitMlContextGroups
             };
             // else {
             //   this._addError(element, `Message ${id} misses a translation`);
@@ -245,6 +236,11 @@ class XliffParser implements mlAst.Visitor {
         if (element.name === _SOURCE_TAG) {
           this._unitMlSourceString = innerText;
         } else if (element.name === _TARGET_TAG) {
+          this._unitMlTargetState = 'needs-translation';
+          const stateAttr = element.attrs.find(x => x.name === _TARGET_STATE_ATTR);
+          if (stateAttr) {
+            this._unitMlTargetState = stateAttr.value as any;
+          }
           this._unitMlTargetString = innerText;
         } else {
           // context tag
@@ -270,8 +266,8 @@ class XliffParser implements mlAst.Visitor {
         mlAst.visitAll(this, element.children, null);
         if (typeof this._unitMlCtxGroupSrcFile === 'string' && this._unitMlCtxGroupLineNumber !== null) {
           this._unitMlContextGroups.push({
-            sourcefile: this._unitMlCtxGroupSrcFile,
-            linenumber: this._unitMlCtxGroupLineNumber
+            sourceFile: this._unitMlCtxGroupSrcFile,
+            lineNumber: this._unitMlCtxGroupLineNumber
           });
         } else {
           this._addError(element, `Message ${this._unitMlId} misses a translation`);

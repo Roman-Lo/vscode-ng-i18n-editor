@@ -13,8 +13,8 @@ interface ExtEventBase {
 interface ExtResultCallbackEvent extends ExtEventBase {
   readonly commandHash: string;
   readonly commandName: string;
-  readonly success: boolean;
-  readonly error?: { code: number; message: string; };
+  success: boolean;
+  error?: { code: number; message: string; };
 }
 
 interface ITranslationMemorySetting {
@@ -41,6 +41,13 @@ interface II18nEditorSetting {
    * @type {('blur' | 'change' | 'manual')}
    */
   translationSaveOn: 'blur' | 'change' | 'manual';
+  /**
+   * locations for xliff files
+   *
+   * @type {string[]}
+   * @memberof II18nEditorSetting
+   */
+  messageLocations: string[];
 }
 
 /**

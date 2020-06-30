@@ -19,7 +19,10 @@ interface IWebViewPageData {
     mode: 'git-control' | 'db-control';
     translationSaveOn: 'blur' | 'change' | 'manual';
   };
-  xliffFiles: string[];
+  xliffFiles: {
+    name: string;
+    path: string;
+  }[];
   selectedXliffFile: string | null;
   xliffFileLoading: boolean;
   searchOptions: {
@@ -75,6 +78,11 @@ export function bootstrap() {
       this.loadXliffFiles();
     },
     methods: {
+      onSelectedFileChange(file: string) {
+        this.selectedXliffFile = file;
+        this.loadXliffContent();
+      },
+
       loadXliffFiles() {
         sendCommand('list-xliff-files', Object.assign(generateCommandBase(), {
           dir: '.'
@@ -144,7 +152,7 @@ export function bootstrap() {
     'list-xliff-files-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['list-xliff-files-loaded']) => {
       if (errorDetect(data)) {
         pageData.xliffFiles = data.files;
-        if (pageData.selectedXliffFile && data.files.indexOf(pageData.selectedXliffFile) < 0) {
+        if (pageData.selectedXliffFile && data.files.findIndex(x => x.path === pageData.selectedXliffFile) < 0) {
           // clear data
           pageData.selectedXliffFile = null;
           _transUnits = [];
@@ -164,7 +172,7 @@ export function bootstrap() {
             updating: false,
             commandHash: null,
             error: null,
-            __key_for_search__: `~|${t.key}|~|${t.source}|~|${t.meaning}|~|${t.description}|~`
+            __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`
           });
           transUnits.push(viewObj);
           transUnitsByKey[viewObj.key] = viewObj;
@@ -223,6 +231,7 @@ export function bootstrap() {
 
 
   window.addEventListener('message', (event) => {
+    console.log(`message received`, event);
     const message = event.data as i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>;
     if (handlers.hasOwnProperty(message.command)) {
       const handler = handlers[message.command];

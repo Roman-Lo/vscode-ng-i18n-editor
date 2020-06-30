@@ -6,7 +6,7 @@ import { EditorCommandHanlder } from './command-handler';
 
 
 
-export class EditorWebViewCommander {
+export class EditorWebViewBuilder {
     private currentPanel: vscode.WebviewPanel | undefined = undefined;
     private commandHandler: EditorCommandHanlder | undefined = undefined;
 
@@ -15,7 +15,7 @@ export class EditorWebViewCommander {
 
     constructor() { }
 
-    public command(
+    public create(
         ctx: vscode.ExtensionContext,
         setting: INgI18nExtSetting
     ) {
@@ -43,7 +43,7 @@ export class EditorWebViewCommander {
             panel.webview.html = parsedHtml;
 
 
-            this.commandHandler = new EditorCommandHanlder(panel.webview);
+            this.commandHandler = new EditorCommandHanlder(panel.webview, setting);
             panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
                 try {
                     this.commandHandler?.handle(message.command, message.data);
@@ -57,6 +57,17 @@ export class EditorWebViewCommander {
             }, null, ctx.subscriptions);
 
             this.currentPanel = panel;
+        }
+    }
+
+    public reload(
+        ctx: vscode.ExtensionContext,
+        setting: INgI18nExtSetting
+    ) {
+        if (this.currentPanel) {
+            this.commandHandler?.updateSetting(setting);
+            const parsedHtml = this.buildWebViewHtml(this.currentPanel, ctx, setting);
+            this.currentPanel.webview.html = parsedHtml;
         }
     }
 

@@ -16,9 +16,14 @@ declare namespace i18n {
     key: string;
     description: string;
     meaning: string;
+
     source: string;
-    target: string;
-    state: TranslationStateType;
+    source_identifier: string;
+
+    target?: string;
+    target_identifier?: string;
+
+    state?: TranslationStateType;
     contextGroups: TransUnitContextGroup[];
   }
 }

@@ -7,7 +7,10 @@ declare namespace i18nWebView // i18n-webview
 
   interface ListXliffFilesResultEvent extends ExtResultCallbackEvent {
     readonly dir: string;
-    readonly files: string[];
+    readonly files: {
+      name: string;
+      path: string;
+    }[];
   }
 
   interface LoadXliffFileCommand extends ExtEventBase {

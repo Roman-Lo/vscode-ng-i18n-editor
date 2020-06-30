@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { EditorWebViewCommander } from './editor/commander';
+import { EditorWebViewBuilder } from './editor/webview-builder';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -14,7 +14,10 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 		dir: '.',
 		editor: {
-			translationSaveOn: 'blur'
+			translationSaveOn: 'blur',
+			messageLocations: [
+				'locale/apps-bundle.xlf'
+			],
 		}
 	};
 
@@ -22,16 +25,26 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "vscode-ng-i18n-editor" is now active!');
 
+	const builder = new EditorWebViewBuilder();
+
 	let viewsubs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
-		const commander = new EditorWebViewCommander();
-		commander.command(
+		builder.create(
 			context,
 			defaultSetting
 		);
 	});
 
+	let watchersubs = vscode.workspace.onDidSaveTextDocument((event) => {
+		if (
+			event.fileName.endsWith('.xlf') ||
+			event.fileName.endsWith('.xliff')
+		) {
+			builder.reload(context, defaultSetting);
+		}
+	});
+
 	context.subscriptions.push(
-		viewsubs
+		viewsubs, watchersubs
 	);
 }
 

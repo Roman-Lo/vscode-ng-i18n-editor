@@ -8,6 +8,28 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
   locales: [
     'en-US'
   ],
+  transStateOptions: {
+    'new': {
+      state: 'new',
+      name: 'New',
+      abbr: 'N',
+    },
+    'needs-translation': {
+      state: 'needs-translation',
+      name: 'Need translation',
+      abbr: 'P',
+    },
+    'translated': {
+      state: 'translated',
+      name: 'Translated',
+      abbr: 'T',
+    },
+    'signed-off': {
+      state: 'signed-off',
+      name: 'Signed off',
+      abbr: 'S',
+    },
+  },
   selectedXliffFile: null,
   selectedTargetLocale: null,
   xliffFileLoading: false,
@@ -17,7 +39,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
   },
   searchOptions: {
     key: null,
-    state: 'all',
+    state: ['new','needs-translation','signed-off','translated'],
     pageNum: 1,
     pageSize: 10,
   },

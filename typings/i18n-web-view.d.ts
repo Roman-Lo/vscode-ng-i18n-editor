@@ -118,12 +118,19 @@ declare namespace i18nWebView // i18n-webview
       path: string;
     }[];
     locales: string[];
+    transStateOptions: {
+      [key: string]: {
+        state: i18n.TranslationStateType,
+        name: string;
+        abbr: string;
+      }
+    };
     selectedXliffFile: string | null;
     selectedTargetLocale: string | null;
     xliffFileLoading: boolean;
     searchOptions: {
       key: string | null;
-      state: i18n.TranslationStateType | 'all';
+      state: i18n.TranslationStateType[];
       pageSize: number;
       pageNum: number;
     }

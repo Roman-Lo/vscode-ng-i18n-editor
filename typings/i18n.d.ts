@@ -1,11 +1,14 @@
 
 declare namespace i18n {
 
-  type TranslationStateType =
-    'new' |
-    'needs-translation' |
-    'translated' |
-    'signed-off';
+  interface TranslationStateDict  {
+    "new": 'N';
+    "needs-translation": 'P';
+    "translated": 'T';
+    "signed-off": 'S';
+  }
+
+  type TranslationStateType = keyof TranslationStateDict;
 
   interface TransUnitContextGroup {
     sourceFile: string;

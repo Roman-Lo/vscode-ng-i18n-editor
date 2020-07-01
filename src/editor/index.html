@@ -22,6 +22,19 @@
       margin-bottom: 0;
     }
 
+    .ant-table-header-column {
+      width: 100%;
+    }
+
+    .source-title-column {
+      display: flex;
+      align-items: center;
+    }
+
+    .source-title-column>span {
+      display: inline-block;
+    }
+
     .editor-validation-message {
       margin-top: 3px;
     }
@@ -52,10 +65,35 @@
         <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
           <a-col :span="24">
             <a-spin :spinning="xliffFileLoading" tip="Loading...">
-              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" bordered>
+              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false"
+                bordered>
                 <!-- title slots -->
-                <span slot="sourceTitle">Source ({{ transUnitTable.sourceLocale }})</span>
-                <span slot="targetTitle">Translation ({{ transUnitTable.targetLocale }})</span>
+                <span class="source-title-column" slot="sourceTitle">
+                  <span>Source ({{ transUnitTable.sourceLocale }})</span>
+                  <span :style="{ flex: 'auto', 'margin-left': '10px' }">
+                    <a-input placeholder="Enter keyword to search">
+                      <a-icon slot="prefix" type="search" />
+                    </a-input>
+                  </span>
+                </span>
+                <span class="source-title-column" slot="targetTitle">
+                  <span>Translation ({{ transUnitTable.targetLocale }})</span>
+                  <span :style="{ flex: 'auto', 'margin-left': '10px' }">
+                    <a-input placeholder="Enter keyword to search">
+                      <a-icon slot="prefix" type="search" />
+                    </a-input>
+                  </span>
+                  <span :style="{ 'margin-left': '10px' }">
+                    <template v-for="(item, key) in transStateOptions">
+                      <a-tooltip :title="item.name" placement="bottom">
+                        <a-checkable-tag :key="item.state" :checked="searchOptions.state.indexOf(item.state) > -1"
+                          @change="checked => selectStateFilter(item.state, checked)">
+                          {{ item.abbr }}
+                        </a-checkable-tag>
+                      </a-tooltip>
+                    </template>
+                  </span>
+                </span>
                 <!-- row data slots -->
                 <div slot="sourceColumn" slot-scope="record">
                   <template v-for="part in record.source_parts">
@@ -67,7 +105,8 @@
                 </div>
                 <div slot="targetColumn" slot-scope="record">
                   <!-- translation editor -->
-                  <div v-if="transUnitTable.editingUnit?.key === record.key" ref='editor-div'>
+                  <div v-if="transUnitTable.editingUnit && transUnitTable.editingUnit.key === record.key"
+                    ref='editor-div'>
                     <a-mentions autoFocus v-model="transUnitTable.editingUnit.editorValue" prefix="#"
                       @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
                       <a-mentions-option v-for="tag in transUnitTable.editingUnit.availableTags" :value="tag">
@@ -80,7 +119,6 @@
                   </div>
                   <!-- translation display value -->
                   <div v-else @click="startTranslation(record, $event)">
-                    &nbsp;
                     <template v-for="(part, index) in record.target_parts">
                       <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
                       <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'"
@@ -111,13 +149,19 @@
     const transUnitTableColumns = [
       {
         key: 'source',
-        slots: { title: 'sourceTitle' },
-        scopedSlots: { customRender: 'sourceColumn' },
+        slots: {
+          title: 'sourceTitle',
+        },
+        scopedSlots: {
+          customRender: 'sourceColumn',
+        },
+        width: '45%'
       },
       {
         key: 'target',
         slots: { title: 'targetTitle' },
         scopedSlots: { customRender: 'targetColumn' },
+        width: '45%'
       },
       {
         key: 'actions',

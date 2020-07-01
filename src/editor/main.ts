@@ -6,6 +6,7 @@ import { timeStamp } from 'console';
 
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
+
 let vscode: Webview | null = null;
 try {
   if (isInVsCodeIDE) {
@@ -40,9 +41,31 @@ export function bootstrap() {
       mode: 'git-control',
       translationSaveOn: 'blur',
     },
+    transStateOptions: {
+      'new': {
+        state: 'new',
+        name: 'New',
+        abbr: 'N',
+      },
+      'needs-translation': {
+        state: 'needs-translation',
+        name: 'Need translation',
+        abbr: 'P',
+      },
+      'translated': {
+        state: 'translated',
+        name: 'Translated',
+        abbr: 'T',
+      },
+      'signed-off': {
+        state: 'signed-off',
+        name: 'Signed off',
+        abbr: 'S',
+      },
+    },
     searchOptions: {
       key: null,
-      state: 'all',
+      state: ['new','needs-translation','signed-off','translated'],
       pageNum: 1,
       pageSize: 10,
     },
@@ -60,6 +83,7 @@ export function bootstrap() {
       pageSize: 10,
     }
   } : MOCK_DATA;
+
   Vue.use(antd);
   var app = new Vue({
     el: '#app',
@@ -78,6 +102,17 @@ export function bootstrap() {
         this.selectedTargetLocale = locale;
         this.loadXliffContent();
       },
+      // filter events
+      selectStateFilter(state: i18n.TranslationStateType, checked: boolean) {
+        const idx = pageData.searchOptions.state.indexOf(state);
+        if (checked && idx === -1) {
+          pageData.searchOptions.state.push(state);
+        } else if (!checked && idx >= 0) {
+          pageData.searchOptions.state.splice(idx, 1);
+        }
+      },
+
+      // editor events
       startTranslation(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
         const { editingUnit: curEditState } = pageData.transUnitTable;
         if (curEditState) {
@@ -116,8 +151,8 @@ export function bootstrap() {
         editingUnitState.editorValue = editorValueParts.join('');
         pageData.transUnitTable.editingUnit = editingUnitState;
         this.$nextTick().then(() => {
-          (this.$refs['editor-div'] as HTMLElement)
-            .getElementsByTagName('textarea')[0]?.focus();
+          const containerEl = (this.$refs['editor-div'] as HTMLElement);
+          containerEl.getElementsByTagName('textarea')[0]?.focus();
         });
         console.log(`start edit trans unit: ${record.key}`);
       },
@@ -367,7 +402,7 @@ export function bootstrap() {
         const max = totalAmount - 1;
         const start = Math.min((pageNum - 1) * pageSize, max);
         const end = Math.min(start + pageSize, max);
-        pageData.transUnitTable.transUnits = _transUnits.slice(start, end);
+        pageData.transUnitTable.transUnits = _transUnits; //.slice(start, end);
         console.log(`transunits:`, JSON.stringify(pageData.transUnitTable.transUnits));
       }
     },

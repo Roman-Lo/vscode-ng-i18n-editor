@@ -73,7 +73,7 @@ class I18nHtmlPartParser implements mlAst.Visitor {
   }
 
   visitText(text: mlAst.Text, context: any): any {
-    const processed = StringUtils.trimAndRemoveLineWrapper(text.value);
+    const processed = StringUtils.removeLineWrapper(text.value);
     const textPart: i18n.I18nHtmlPart = {
       key: null,
       type: 'text',

@@ -14,16 +14,26 @@ declare namespace i18n {
 
   interface TransUnit {
     key: string;
-    description?: string;
-    meaning?: string;
+    description?: string | null;
+    meaning?: string | null;
 
     source: string;
     source_identifier: string;
+    source_parts: I18nHtmlPart[] | null;
 
-    target?: string;
-    target_identifier?: string;
+    target?: string | null;
+    target_identifier?: string | null;
+    target_parts?: I18nHtmlPart[] | null;
 
-    state?: TranslationStateType;
+    state?: TranslationStateType | null;
     contextGroups: TransUnitContextGroup[];
+  }
+
+  interface I18nHtmlPart {
+    key: string | null;
+    type: 'text' | 'ph_tag';
+    rawHtml: string;
+    displayHtml: string;
+    identifier: string;
   }
 }

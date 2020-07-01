@@ -4,6 +4,7 @@ import * as i18nAst from "../ngc/i18n/ast";
 import * as xml from "../ngc/i18n/serializers/xml_helper";
 import { XmlParser } from "../ngc/ml_parser/xml_parser";
 import { StringUtils } from "../common/string.util";
+import { I18nHtml } from "./i18n-html";
 
 const _VERSION = '1.2';
 const _XMLNS = 'urn:oasis:names:tc:xliff:document:1.2';
@@ -203,17 +204,28 @@ class XliffParser implements mlAst.Visitor {
             this._addError(element, `Duplicated translations for msg ${this._unitMlId}`);
           } else {
             mlAst.visitAll(this, element.children, null);
-            this._transUnitByMsgId[this._unitMlId] = {
+            const source = StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString);
+            const sourceParts = I18nHtml.parseIntoParts(source);
+            const sourceIdfr = I18nHtml.buildIdentifier(sourceParts);
+            const transUnit: i18n.TransUnit = {
               key: this._unitMlId,
-              source: StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString),
-              source_identifier: '',
-              target: StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString),
-              target_identifier: '',
-              state: this._unitMlTargetState || undefined,
+              source: source,
+              source_identifier: sourceIdfr,
+              source_parts: sourceParts,
               description: this._unitMlDescription,
               meaning: this._unitMlMeaning,
               contextGroups: this._unitMlContextGroups
             };
+            if (this._unitMlTargetString) {
+              const target = StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString);
+              const targetParts = I18nHtml.parseIntoParts(target);
+              const targetIdfr = I18nHtml.buildIdentifier(targetParts);
+              transUnit.target = target;
+              transUnit.target_parts = targetParts;
+              transUnit.target_identifier = targetIdfr;
+              transUnit.state = this._unitMlTargetState || undefined;
+            }
+            this._transUnitByMsgId[this._unitMlId] = transUnit;
             // else {
             //   this._addError(element, `Message ${id} misses a translation`);
             // }

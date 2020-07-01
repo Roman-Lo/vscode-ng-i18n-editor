@@ -2,6 +2,7 @@ import * as antd from 'ant-design-vue';
 import { Webview } from 'vscode';
 import Vue from 'vue';
 import { MOCK_DATA } from './mock-data';
+import { timeStamp } from 'console';
 
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
@@ -48,6 +49,7 @@ export function bootstrap() {
     transUnitTable: {
       sourceLocale: '',
       targetLocale: '',
+      editingUnit: null,
       columns: transUnitTableColumns,
       transUnits: [],
       loaded: false,
@@ -76,10 +78,168 @@ export function bootstrap() {
         this.selectedTargetLocale = locale;
         this.loadXliffContent();
       },
-      targetTextBlur(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
-        record.target = ($event.target as Element).innerHTML;
-        console.log(`key: ${record.key}, translation updated to: ${record.target}`);
+      startTranslation(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
+        const { editingUnit: curEditState } = pageData.transUnitTable;
+        if (curEditState) {
+          if (curEditState.key === record.key) {
+            return;
+          } else {
+            if (!this.endTranslation(curEditState.ref, $event)) {
+              return;
+            }
+          }
+        }
+        const editingUnitState: i18nWebView.IWebViewEditingUnitState = {
+          key: record.key,
+          editorValue: '',
+          availableTags: [],
+          allTags: record.source_parts?.filter(x => x.type === 'ph_tag')?.map(x => x.key as string) ?? ([] as string[]),
+          error: null,
+          ref: record,
+        };
+        // build editor value
+        const editorValueParts: string[] = [];
+        const tagDict = editingUnitState.allTags.reduce<{ [key: string]: boolean }>((a, v) => {
+          a[v] = true;
+          return a;
+        }, {});
+        record.target_parts?.forEach(p => {
+          if (p.type === 'text') {
+            editorValueParts.push(p.displayHtml);
+          } else if (p.type === 'ph_tag' && p.key) {
+            editorValueParts.push(` #${p.key} `);
+            // delete tagDict[p.key];
+          }
+        });
+        const availableTags = Object.keys(tagDict);
+        editingUnitState.availableTags = availableTags;
+        editingUnitState.editorValue = editorValueParts.join('');
+        pageData.transUnitTable.editingUnit = editingUnitState;
+        this.$nextTick().then(() => {
+          (this.$refs['editor-div'] as HTMLElement)
+            .getElementsByTagName('textarea')[0]?.focus();
+        });
+        console.log(`start edit trans unit: ${record.key}`);
       },
+      editorBlur(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
+        const { editingUnit: curEditState } = pageData.transUnitTable;
+        if ((curEditState as any).__skip_blur) {
+          (curEditState as any).__skip_blur = false;
+          return;
+        }
+        this.endTranslation(record, $event);
+      },
+      editorValueChange(value: string) {
+        if (pageData.transUnitTable.editingUnit) {
+          const {
+            allTags
+          } = pageData.transUnitTable.editingUnit;
+          const availables = allTags.filter(needle => value.indexOf(`#${needle}`) < 0);
+          pageData.transUnitTable.editingUnit.availableTags = availables;
+        }
+      },
+      tagSelected(option: { value: string }, prefix: string) {
+        const { editingUnit: curEditState } = pageData.transUnitTable;
+        if (curEditState) {
+          (curEditState as any).__skip_blur = true; // mark skip blur
+        }
+      },
+      endTranslation(record: i18nWebView.ITransUnitView, $event: FocusEvent): boolean {
+        const { editingUnit: curEditState } = pageData.transUnitTable;
+        if (!curEditState) {
+          return true;
+        }
+        if (curEditState.key === record.key) {
+          // sync target 
+          const {
+            allTags, editorValue
+          } = curEditState;
+          const tagCounter: { [key: string]: number } = {};
+          const tagNeedleDict = allTags.reduce<{ [key: string]: string }>((a, v) => {
+            a[`#${v}`] = v;
+            tagCounter[v] = 0;
+            return a;
+          }, {});
+
+          const parts: i18n.I18nHtmlPart[] = [];
+          let buffer: string[] = [];
+          let target: string = '';
+          let targetIdfr: string = '';
+          const pushTextPartFromBuffer = (bArr: string[]) => {
+            const textContent = bArr.join(' ').trim();
+            if (textContent.length > 0) {
+              parts.push({
+                key: null,
+                type: 'text',
+                displayHtml: textContent,
+                rawHtml: textContent,
+                identifier: textContent,
+              });
+              target += textContent;
+              targetIdfr += textContent;
+            }
+          };
+
+          editorValue.split(' ').forEach(buf => {
+            if (tagNeedleDict[buf]) {
+              pushTextPartFromBuffer(buffer);
+              // push tag 
+              const tagKey = tagNeedleDict[buf];
+              const srcPart = record.source_parts?.find(x => x.key === tagKey);
+              if (srcPart) {
+                target += srcPart.rawHtml;
+                targetIdfr += srcPart.identifier;
+                tagCounter[tagKey]++;
+                parts.push(srcPart);
+              }
+              // clear buffer
+              buffer = [];
+            } else {
+              buffer.push(buf);
+            }
+          });
+          pushTextPartFromBuffer(buffer);
+
+          const missingKeys: string[] = [];
+          const duplicateKeys: string[] = [];
+          let hasError = false;
+          Object.keys(tagCounter).forEach(tagKey => {
+            const count = tagCounter[tagKey];
+            if (count === 1) {
+              return;
+            }
+            if (count === 0) {
+              missingKeys.push(tagKey);
+              hasError = true;
+            } else {
+              duplicateKeys.push(tagKey);
+              hasError = true;
+            }
+          });
+          if (hasError) {
+            let errors = [];
+            errors.push(...missingKeys.map(x => `Missing placeholder '${x}';`));
+            errors.push(...duplicateKeys.map(x => `Placeholder '${x}' declared more than once;`));
+            curEditState.error = errors.join(' ');
+            ($event.srcElement as HTMLElement).focus();
+            return false;
+          }
+          record.target = target;
+          record.target_parts = parts;
+          record.target_identifier = targetIdfr;
+          record.state = target.length === 0 ? 'needs-translation' : 'translated';
+          console.log(`key: ${record.key}, translation updated to: ${record.target}`);
+        }
+
+        pageData.transUnitTable.editingUnit = null;
+        console.log(`end translating: ${record.key}`);
+
+        if (pageData.settings.translationSaveOn === 'blur') {
+          this.updateTransUnit(record);
+        }
+        return true;
+      },
+
 
       // command caller
       loadXliffFiles() {
@@ -189,6 +349,7 @@ export function bootstrap() {
             _updating: false,
             _commandHash: null,
             _error: null,
+            _caret_pos: 0,
             __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`
           });
           transUnits.push(viewObj);
@@ -203,7 +364,11 @@ export function bootstrap() {
         const {
           totalAmount, pageNum, pageSize
         } = pageData.pagination;
-        pageData.transUnitTable.transUnits = _transUnits.slice(pageNum, Math.min(pageSize, totalAmount));
+        const max = totalAmount - 1;
+        const start = Math.min((pageNum - 1) * pageSize, max);
+        const end = Math.min(start + pageSize, max);
+        pageData.transUnitTable.transUnits = _transUnits.slice(start, end);
+        console.log(`transunits:`, JSON.stringify(pageData.transUnitTable.transUnits));
       }
     },
     'trans-unit-code-ctx-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['trans-unit-code-ctx-loaded']) => {

@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
+import { promises as fsPromises, existsSync } from 'fs';
 import { FileUtils } from '../modules/common/file.util';
 import { Xliff } from '../modules/xliff/xliff';
+import { I18nHtml } from '../modules/xliff/i18n-html';
 export class EditorCommandHanlder {
 
     private static readonly commandResultMap = {
@@ -66,28 +67,88 @@ export class EditorCommandHanlder {
     loadXliffFile(command: i18nWebView.LoadXliffFileCommand) {
         const file = command.xliffFile;
         const tarLocale = command.locale;
-        fs.readFile(file, { encoding: 'utf8' }, (err, data) => {
-            let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
-            if (err) {
-                const errMsg = `failed to read ${file}. Errors: err.message`;
+        const targetXliff = FileUtils.getCorrespondingTranslationFile(file, tarLocale);
+        let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
+        Promise.all(
+            [
+                fsPromises.readFile(file, { encoding: 'utf8' }),
+                existsSync(targetXliff) ? fsPromises.readFile(targetXliff, { encoding: 'utf8' }) : Promise.resolve('NOT-EXISTS')
+            ]
+        ).then((fileReadResults) => {
+            let sourceContent = fileReadResults[0];
+            let targetContent = fileReadResults[1];
+            const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(sourceContent, '');
+            if (errors && errors.length > 0 || !sourceLocale) {
+                const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
                 result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
             } else {
-                const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(data, '');
-                if (errors && errors.length > 0 || !sourceLocale) {
-                    const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
-                    result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
-                } else {
-                    result = {
-                        ...this.buildCallbackResultBase('xliff-file-loaded', command),
-                        xliffFile: file,
-                        sourceLangCode: sourceLocale,
-                        targetLangCode: tarLocale,
-                        transUnits: Object.values(transUnitByMsgId),
-                    };
+                if (targetContent !== 'NOT-EXISTS') {
+                    const {
+                        transUnitByMsgId: translationById,
+                        errors: tErrors,
+                        sourceLocale: tSourceLocale,
+                        targetLocale: tTargetLocale,
+                    } = Xliff.loadTransUnits(targetContent, '');
+                    if (tErrors && tErrors.length > 0) {
+                        const errMsg = `failed to load translations from ${targetXliff}. Errors: ${errors?.join('; ')}`;
+                        result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+                    } else if (tSourceLocale !== sourceLocale) {
+                        const errMsg = `the translation file source locale is not match. actual: ${tSourceLocale}, expected: ${sourceLocale}`;
+                        result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+                    } else if (tTargetLocale !== tarLocale) {
+                        const errMsg = `the translation file target locale is not match. actual: ${tTargetLocale}, expected: ${tarLocale}`;
+                        result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+                    } else {
+                        // populate translations
+                        const resultTransUnits = Object.values(transUnitByMsgId).map(transUnit => {
+                            const transItem = translationById[transUnit.key];
+                            if (transItem) {
+                                transUnit.target = transItem.target;
+                                transUnit.target_parts = transItem.target_parts ?? [];
+                                transUnit.target_identifier = transItem.target_identifier;                                
+                                transUnit.state = transItem.state;
+                            }
+                            return transUnit;
+                        });
+                        result = {
+                            ...this.buildCallbackResultBase('xliff-file-loaded', command),
+                            xliffFile: file,
+                            sourceLangCode: sourceLocale,
+                            targetLangCode: tarLocale,
+                            transUnits: resultTransUnits,
+                        };
+                    }
                 }
             }
             this.sendMessage('xliff-file-loaded', result);
+        }).catch((err) => {
+            const errMsg = `failed to read ${file}. Errors: ${err}`;
+            result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+            this.sendMessage('xliff-file-loaded', result);
         });
+
+        // fs.readFile(file, { encoding: 'utf8' }, (err, data) => {
+        //     let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
+        //     if (err) {
+        //         const errMsg = `failed to read ${file}. Errors: err.message`;
+        //         result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+        //     } else {
+        //         const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(data, '');
+        //         if (errors && errors.length > 0 || !sourceLocale) {
+        //             const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
+        //             result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+        //         } else {
+        //             result = {
+        //                 ...this.buildCallbackResultBase('xliff-file-loaded', command),
+        //                 xliffFile: file,
+        //                 sourceLangCode: sourceLocale,
+        //                 targetLangCode: tarLocale,
+        //                 transUnits: Object.values(transUnitByMsgId),
+        //             };
+        //         }
+        //     }
+        //     this.sendMessage('xliff-file-loaded', result);
+        // });
     }
 
     loadTransUnitCodeCtx(command: i18nWebView.LoadTransUnitCodeContextCommand) {

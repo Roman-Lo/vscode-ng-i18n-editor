@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="utf-8" />
   <title>Angular I18n Xliff Editor</title>
   <style>
     html,
@@ -19,6 +20,10 @@
 
     [data-page-section]:last-child {
       margin-bottom: 0;
+    }
+
+    .editor-validation-message {
+      margin-top: 3px;
     }
   </style>
 </head>
@@ -53,10 +58,32 @@
                 <span slot="targetTitle">Translation ({{ transUnitTable.targetLocale }})</span>
                 <!-- row data slots -->
                 <div slot="sourceColumn" slot-scope="record">
-                  {{ record.key }}
+                  <template v-for="part in record.source_parts">
+                    <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
+                    <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'" :data-part-key="part.key"
+                      @click="insertPhPart(part, record)">{{ part.key }}</a-tag>
+                  </template>
                 </div>
                 <div slot="targetColumn" slot-scope="record">
-                  <div contenteditable v-html="record.target" @blur="targetTextBlur(record, $event)"></div>
+                  <div v-if="transUnitTable.editingUnit?.key === record.key" ref='editor-div'>
+                    <a-mentions autoFocus v-model="transUnitTable.editingUnit.editorValue" prefix="#"
+                      @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
+                      <a-mentions-option v-for="tag in transUnitTable.editingUnit.availableTags" :value="tag">
+                        {{tag}}
+                      </a-mentions-option>
+                    </a-mentions>
+                    <div class="editor-validation-message" v-show="transUnitTable.editingUnit.error">
+                      <a-alert type="error" :message="transUnitTable.editingUnit.error" showIcon />
+                    </div>
+                  </div>
+                  <div v-else @click="startTranslation(record, $event)">
+                    &nbsp;
+                    <template v-for="(part, index) in record.target_parts">
+                      <template v-if="part.type == 'text'">{{ part.displayHtml }}</template>
+                      <template v-else-if="part.type == 'ph_tag'">&nbsp;<a-tag class="tag-label" contenteditable="false"
+                          :data-part-key="part.key" color="orange">{{ part.key }}</a-tag>&nbsp;</template>
+                    </template>
+                  </div>
                 </div>
                 <div slot="recordActions" slot-scope="record">
 

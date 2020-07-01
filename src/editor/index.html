@@ -60,11 +60,13 @@
                 <div slot="sourceColumn" slot-scope="record">
                   <template v-for="part in record.source_parts">
                     <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
-                    <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'" :data-part-key="part.key"
-                      @click="insertPhPart(part, record)">{{ part.key }}</a-tag>
+                    <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'" :data-part-key="part.key">
+                      {{ part.key }}
+                    </a-tag>
                   </template>
                 </div>
                 <div slot="targetColumn" slot-scope="record">
+                  <!-- translation editor -->
                   <div v-if="transUnitTable.editingUnit?.key === record.key" ref='editor-div'>
                     <a-mentions autoFocus v-model="transUnitTable.editingUnit.editorValue" prefix="#"
                       @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
@@ -76,12 +78,15 @@
                       <a-alert type="error" :message="transUnitTable.editingUnit.error" showIcon />
                     </div>
                   </div>
+                  <!-- translation display value -->
                   <div v-else @click="startTranslation(record, $event)">
                     &nbsp;
                     <template v-for="(part, index) in record.target_parts">
-                      <template v-if="part.type == 'text'">{{ part.displayHtml }}</template>
-                      <template v-else-if="part.type == 'ph_tag'">&nbsp;<a-tag class="tag-label" contenteditable="false"
-                          :data-part-key="part.key" color="orange">{{ part.key }}</a-tag>&nbsp;</template>
+                      <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
+                      <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'"
+                        :data-part-key="part.key">
+                        {{ part.key }}
+                      </a-tag>
                     </template>
                   </div>
                 </div>

@@ -88,6 +88,9 @@ export class EditorWebViewBuilder {
         const momentJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
             path.join(ctx.extensionPath, 'libs', 'moment', '2.27.0', 'moment-with-locales.min.js')
         ));
+        const vueDashEventJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
+            path.join(ctx.extensionPath, 'libs', 'vue-dash-event', '1.0.1', 'index.min.js')
+        ));
         const mainJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
             path.join(ctx.extensionPath, 'out', 'editor', 'main.js')
         ));
@@ -101,7 +104,8 @@ export class EditorWebViewBuilder {
             .replace('#vueJsSrc#', vueJsSrc.toString())
             .replace('#vueAntdCssSrc#', vueAntdCssSrc.toString())
             .replace('#vueAntdJsSrc#', vueAntdJsSrc.toString())
-            .replace('#momentJsSrc#', momentJsSrc.toString());
+            .replace('#momentJsSrc#', momentJsSrc.toString())
+            .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString());
 
         return parsedHTML;
     }

@@ -2,7 +2,6 @@ import * as antd from 'ant-design-vue';
 import { Webview } from 'vscode';
 import Vue from 'vue';
 import { MOCK_DATA } from './mock-data';
-import { timeStamp } from 'console';
 
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
@@ -20,6 +19,12 @@ if (!isInVsCodeIDE) {
   console.log(`using mock data:`, MOCK_DATA);
   if (MOCK_DATA) {
     MOCK_DATA.transUnitTable.columns = transUnitTableColumns;
+    MOCK_DATA.transUnitTable.transUnits.forEach(x => {
+      x.__signoff_hovered = false;
+      if (x.target && x.target.length > 0 && x.state !== 'signed-off') {
+        x.state = 'translated';
+      }
+    });
   }
 } else {
 
@@ -30,6 +35,8 @@ export function bootstrap() {
 
   let _transUnits: i18nWebView.ITransUnitView[] = [];
   let _transUnitsByKey: { [key: string]: i18nWebView.ITransUnitView } = {};
+
+  let _filteredResult: i18nWebView.ITransUnitView[] = [];
 
   const pageData: i18nWebView.IWebViewPageData = isInVsCodeIDE ? {
     xliffFiles: [],
@@ -63,11 +70,10 @@ export function bootstrap() {
         abbr: 'S',
       },
     },
-    searchOptions: {
-      key: null,
+    filterOptions: {
+      sourceKeyword: null,
+      targetKeyword: null,
       state: ['new', 'needs-translation', 'signed-off', 'translated'],
-      pageNum: 1,
-      pageSize: 10,
     },
     transUnitTable: {
       sourceLocale: '',
@@ -80,10 +86,11 @@ export function bootstrap() {
     pagination: {
       totalAmount: 0,
       pageNum: 1,
-      pageSize: 10,
+      pageSize: 50,
     }
   } : MOCK_DATA;
 
+  Vue.use((window as any)['vue-dash-event']);
   Vue.use(antd);
   var app = new Vue({
     el: '#app',
@@ -104,16 +111,31 @@ export function bootstrap() {
       },
       // filter events
       selectStateFilter(state: i18n.TranslationStateType, checked: boolean) {
-        const idx = pageData.searchOptions.state.indexOf(state);
+        const idx = pageData.filterOptions.state.indexOf(state);
         if (checked && idx === -1) {
-          pageData.searchOptions.state.push(state);
+          pageData.filterOptions.state.push(state);
         } else if (!checked && idx >= 0) {
-          pageData.searchOptions.state.splice(idx, 1);
+          pageData.filterOptions.state.splice(idx, 1);
         }
+        applySearchFilter(pageData.filterOptions);
+        this.onPageChange(1);
+      },
+      // pagination
+      onPageChange(pageNum: number, pageSize?: number) {
+        if (pageSize) {
+          this.pagination.pageSize = pageSize;
+        }
+        if (_filteredResult.length !== this.pagination.totalAmount) {
+          this.pagination.totalAmount = _filteredResult.length;
+        }
+        if (pageNum !== this.pagination.pageNum) {
+          this.pagination.pageNum = pageNum;
+        }
+        this.transUnitTable.transUnits = paginateData(_filteredResult, this.pagination.pageNum, this.pagination.pageSize);
       },
 
       // editor events
-      startTranslation(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
+      startTranslation(record: i18nWebView.ITransUnitView, $event: Event) {
         const { editingUnit: curEditState } = pageData.transUnitTable;
         if (curEditState) {
           if (curEditState.key === record.key) {
@@ -123,6 +145,10 @@ export function bootstrap() {
               return;
             }
           }
+        }
+        if (record.state === 'signed-off') {
+          this.$message.warning(`Record '${record.key}' has been signed off. Edit before unlock the state.`);
+          return;
         }
         const sourcePhTags = analyzeTransUnitTags(record.source_parts!);
         const allTagsMeta = buildTagMetaArray(sourcePhTags);
@@ -164,14 +190,34 @@ export function bootstrap() {
         }
         this.endTranslation(record, $event);
       },
+      editorPressEnter(record: i18nWebView.ITransUnitView, index: number, $event: KeyboardEvent) {
+        if ($event.ctrlKey) {
+          if (this.endTranslation(record, $event, false)) {
+            // toggle signoff
+            this.toggleSignOff(record);
+            // seeks next item 
+            for (let i = index + 1; i < this.transUnitTable.transUnits.length; i++) {
+              const nextTransUnit = this.transUnitTable.transUnits[i];
+              if (nextTransUnit.state === 'signed-off') {
+                continue;
+              }
+              this.startTranslation(nextTransUnit, $event);
+              break;
+            }
+          }
+        } else {
+          return;
+        }
+      },
       editorValueChange(value: string) {
         if (pageData.transUnitTable.editingUnit) {
           const {
             allTags
           } = pageData.transUnitTable.editingUnit;
+          const processedValue = value.split('\n').map(x => x.trim()).join(' ');
           const availables: i18nWebView.IWebViewEditorTagMeta[] = allTags.map(x => {
             const regex = new RegExp(`(^|\\s)#${x.tag}($|\\s)`, 'g');
-            const matchCount = value.match(regex)?.length ?? 0;
+            const matchCount = processedValue.match(regex)?.length ?? 0;
             return {
               tag: x.tag,
               count: x.count - matchCount,
@@ -187,7 +233,7 @@ export function bootstrap() {
           (curEditState as any).__skip_blur = true; // mark skip blur
         }
       },
-      endTranslation(record: i18nWebView.ITransUnitView, $event: FocusEvent): boolean {
+      endTranslation(record: i18nWebView.ITransUnitView, $event: Event, needUpdate: boolean = true): boolean {
         const { editingUnit: curEditState } = pageData.transUnitTable;
         if (!curEditState) {
           return true;
@@ -222,7 +268,7 @@ export function bootstrap() {
               targetIdfr += textContent.trim();
             }
           };
-          const processedEditorValue = editorValue.split('\n').map(x => x.trim()).join('');
+          const processedEditorValue = editorValue.split('\n').map(x => x.trim()).join(' ');
           processedEditorValue.split(' ').forEach(buf => {
             if (tagNeedleDict[buf]) {
               pushTextPartFromBuffer(buffer);
@@ -242,30 +288,31 @@ export function bootstrap() {
             }
           });
           pushTextPartFromBuffer(buffer);
-
-          const missingKeys: string[] = [];
-          const duplicateKeys: string[] = [];
-          let hasError = false;
-          Object.keys(tagCounter).forEach(tagKey => {
-            const count = tagCounter[tagKey];
-            if (count === 0) {
-              return;
+          if (processedEditorValue.trim().length > 0) { // validate for non-empty value only
+            const missingKeys: string[] = [];
+            const duplicateKeys: string[] = [];
+            let hasError = false;
+            Object.keys(tagCounter).forEach(tagKey => {
+              const count = tagCounter[tagKey];
+              if (count === 0) {
+                return;
+              }
+              if (count > 0) {
+                missingKeys.push(tagKey);
+                hasError = true;
+              } else {
+                duplicateKeys.push(tagKey);
+                hasError = true;
+              }
+            });
+            if (hasError) {
+              let errors = [];
+              errors.push(...missingKeys.map(x => `Missing placeholder '${x}';`));
+              errors.push(...duplicateKeys.map(x => `Extra placeholder '${x}' was/were detected, please check and remove it;`));
+              curEditState.errors = errors;
+              ($event.srcElement as HTMLElement).focus();
+              return false;
             }
-            if (count > 0) {
-              missingKeys.push(tagKey);
-              hasError = true;
-            } else {
-              duplicateKeys.push(tagKey);
-              hasError = true;
-            }
-          });
-          if (hasError) {
-            let errors = [];
-            errors.push(...missingKeys.map(x => `Missing placeholder '${x}';`));
-            errors.push(...duplicateKeys.map(x => `Extra placeholder '${x}' was/were detected, please check and remove it;`));
-            curEditState.errors = errors;
-            ($event.srcElement as HTMLElement).focus();
-            return false;
           }
           record.target = target;
           record.target_parts = parts;
@@ -277,10 +324,20 @@ export function bootstrap() {
         pageData.transUnitTable.editingUnit = null;
         console.log(`end translating: ${record.key}`);
 
-        if (pageData.settings.translationSaveOn === 'blur') {
+        if (pageData.settings.translationSaveOn === 'blur' && needUpdate) {
           this.updateTransUnit(record);
         }
         return true;
+      },
+
+      // action events
+      toggleSignOff(record: i18nWebView.ITransUnitView) {
+        if (record.state !== 'signed-off') {
+          record.state = 'signed-off';
+        } else if (record.state === 'signed-off') {
+          record.state = 'translated';
+        }
+        this.updateTransUnit(record);
       },
 
 
@@ -302,8 +359,15 @@ export function bootstrap() {
           }));
           if (MOCK_DATA) {
             setTimeout(() => {
-              this.xliffFileLoading = false;
+              _transUnits = this.transUnitTable.transUnits;
+              _transUnitsByKey = _transUnits.reduce((d: { [name: string]: any }, v) => {
+                d[v.key] = v;
+                return d;
+              }, {});
+              applySearchFilter(pageData.filterOptions);
+              this.onPageChange(1);
               this.transUnitTable.loaded = true;
+              this.xliffFileLoading = false;
             }, 1000);
           }
         }
@@ -392,8 +456,9 @@ export function bootstrap() {
             _updating: false,
             _commandHash: null,
             _error: null,
-            _caret_pos: 0,
-            __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`
+            __signoff_hovered: false,
+            __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`,
+            __key_for_search_target__: `~|${[t.target, t.target_identifier].filter(x => !!x).join('|~|')}|~`,
           });
           transUnits.push(viewObj);
           transUnitsByKey[viewObj.key] = viewObj;
@@ -402,16 +467,14 @@ export function bootstrap() {
         _transUnitsByKey = transUnitsByKey;
         pageData.transUnitTable.sourceLocale = data.sourceLangCode;
         pageData.transUnitTable.targetLocale = data.targetLangCode;
-        pageData.pagination.totalAmount = _transUnits.length;
-        pageData.pagination.pageNum = 1;
-        const {
-          totalAmount, pageNum, pageSize
-        } = pageData.pagination;
-        const max = totalAmount - 1;
-        const start = Math.min((pageNum - 1) * pageSize, max);
-        const end = Math.min(start + pageSize, max);
-        pageData.transUnitTable.transUnits = _transUnits; //.slice(start, end);
-        console.log(`transunits:`, JSON.stringify(pageData.transUnitTable.transUnits));
+        const filtered = applySearchFilter(pageData.filterOptions);
+        app.onPageChange(1);
+        // pageData.pagination.totalAmount = filtered.length;
+        // pageData.pagination.pageNum = 1;
+        // const {
+        //   pageNum, pageSize
+        // } = pageData.pagination;
+        // pageData.transUnitTable.transUnits = paginateData(filtered, pageNum, pageSize);
       }
     },
     'trans-unit-code-ctx-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['trans-unit-code-ctx-loaded']) => {
@@ -468,6 +531,41 @@ export function bootstrap() {
       handler(message.data);
     }
   });
+
+  function applySearchFilter(filterOptions: i18nWebView.IWebViewTableFilter) {
+    const filtered = _transUnits.filter(x => {
+      let flag = true;
+      if (filterOptions.sourceKeyword && filterOptions.sourceKeyword.trim().length > 0) {
+        const needle = filterOptions.sourceKeyword.trim();
+        flag = x.__key_for_search__.indexOf(needle) >= 0;
+      }
+      if (flag && filterOptions.targetKeyword && filterOptions.targetKeyword.trim().length > 0) {
+        const needle = filterOptions.targetKeyword.trim();
+        flag = x.__key_for_search_target__.indexOf(needle) >= 0;
+      }
+      if (flag && filterOptions.state) {
+        if (x.state) {
+          flag = filterOptions.state.includes(x.state!);
+        } else {
+          flag = false;
+        }
+      }
+      return flag;
+    });
+    _filteredResult = filtered;
+    return filtered;
+  }
+
+  function paginateData(collection: i18nWebView.ITransUnitView[], pageNum: number, pageSize: number): i18nWebView.ITransUnitView[] {
+    const totalAmount = collection.length;
+    const max = totalAmount;
+    const start = Math.min((pageNum - 1) * pageSize, max);
+    const end = Math.min(start + pageSize, max);
+    const pageItems = collection.slice(start, end);
+    console.log(`transunits:`, JSON.stringify(pageItems));
+    return pageItems;
+  }
+
 
   function analyzeTransUnitTags(parts: i18n.I18nHtmlPart[]): i18nWebView.IWebViewTagAnalyzeResult {
     const phTagParts = parts.filter(x => x.type === 'ph_tag');
@@ -581,4 +679,6 @@ export function bootstrap() {
   ): i18nWebView.I18nTranslateWebViewCommandMap[K] {
     return event.data;
   }
+
+
 }

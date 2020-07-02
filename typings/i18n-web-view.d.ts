@@ -87,7 +87,9 @@ declare namespace i18nWebView // i18n-webview
     _updating: boolean;
     _commandHash: string | null;
     _error?: string | null;
+    __signoff_hovered: boolean;
     __key_for_search__: string;
+    __key_for_search_target__: string;
   }
 
   interface IWebViewEditorTagMeta {
@@ -125,6 +127,12 @@ declare namespace i18nWebView // i18n-webview
     loaded: boolean;
   }
 
+  interface IWebViewTableFilter {
+    sourceKeyword: string | null;
+    targetKeyword: string | null;
+    state: i18n.TranslationStateType[];
+  }
+
   interface IWebViewPageData {
     settings: {
       mode: 'git-control' | 'db-control';
@@ -145,12 +153,7 @@ declare namespace i18nWebView // i18n-webview
     selectedXliffFile: string | null;
     selectedTargetLocale: string | null;
     xliffFileLoading: boolean;
-    searchOptions: {
-      key: string | null;
-      state: i18n.TranslationStateType[];
-      pageSize: number;
-      pageNum: number;
-    }
+    filterOptions: IWebViewTableFilter;
     transUnitTable: IWebViewTransUnitTableData;
     pagination: {
       totalAmount: number;

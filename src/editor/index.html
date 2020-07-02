@@ -42,6 +42,34 @@
     .ant-alert.editor-validation-message {
       margin-top: 5px;
     }
+
+    .ant-mentions.translation-editor-mentions>textarea {
+      resize: vertical;
+    }
+
+    .ant-pagination.table-pagination {
+      text-align: right;
+      margin-top: 10px;
+    }
+
+    .translation-column {
+      display: flex;
+      align-items: center;
+    }
+
+    .translation-column>div {
+      flex: auto;
+    }
+
+    .translation-column>.translation-target {}
+
+    .translation-column>.translation-state {
+      flex: 30px;
+      font-size: 18px;
+      max-width: 30px;
+      text-align: center;
+      display: inline-block;
+    }
   </style>
 </head>
 
@@ -90,7 +118,7 @@
                   <span :style="{ 'margin-left': '10px' }">
                     <template v-for="(item, key) in transStateOptions">
                       <a-tooltip :title="item.name" placement="bottom">
-                        <a-checkable-tag :key="item.state" :checked="searchOptions.state.indexOf(item.state) > -1"
+                        <a-checkable-tag :key="item.state" :checked="filterOptions.state.indexOf(item.state) > -1"
                           @change="checked => selectStateFilter(item.state, checked)">
                           {{ item.abbr }}
                         </a-checkable-tag>
@@ -100,47 +128,95 @@
                 </span>
                 <!-- row data slots -->
                 <div slot="sourceColumn" slot-scope="record">
-                  <template v-for="part in record.source_parts">
-                    <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
-                    <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'" :data-part-key="part.key">
-                      {{ part.key }}
-                    </a-tag>
-                  </template>
-                </div>
-                <div slot="targetColumn" slot-scope="record">
-                  <!-- translation editor -->
-                  <div v-if="transUnitTable.editingUnit && transUnitTable.editingUnit.key === record.key"
-                    ref='editor-div'>
-                    <a-mentions autoFocus v-model="transUnitTable.editingUnit.editorValue" prefix="#"
-                      @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
-                      <a-mentions-option v-for="meta in transUnitTable.editingUnit.availableTags" :value="meta.tag">
-                        {{ meta.tag }}<template v-if="meta.count > 1"> &times; {{ meta.count }}</template>
-                      </a-mentions-option>
-                    </a-mentions>
-                    <a-alert class="editor-validation-message" type="error" show-icon closable
-                      v-if="transUnitTable.editingUnit.errors" message="Validation Failed">
-                      <template slot='description'>
-                        <p :style="{ 'margin-bottom': '3px' }" v-for="msg of transUnitTable.editingUnit.errors">
-                          {{ msg }}
-                        </p>
-                      </template>
-                    </a-alert>
-                  </div>
-                  <!-- translation display value -->
-                  <div v-else @click="startTranslation(record, $event)">
-                    <template v-for="(part, index) in record.target_parts">
+                  <div class="transunit-html">
+                    <template v-for="part in record.source_parts">
                       <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
-                      <a-tag class="tag-label" color="orange" v-else-if="part.type == 'ph_tag'"
-                        :data-part-key="part.key">
-                        {{ part.key }}
-                      </a-tag>
+                      <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
+                        <a-tag class="tag-label" color="orange" :data-part-key="part.key">
+                          {{ part.key }}
+                        </a-tag>
+                      </a-tooltip>
+                    </template>
+                  </div>
+                  <div class="transunit-meta">
+                    Key: {{ record.key }}
+                  </div>
+                </div>
+                <div slot="targetColumn" slot-scope="record, n, index" class="translation-column">
+                  <div class="translation-target">
+                    <!-- translation editor -->
+                    <div v-if="transUnitTable.editingUnit && transUnitTable.editingUnit.key === record.key"
+                      ref='editor-div'>
+                      <a-mentions class="translation-editor-mentions" autoFocus @keydown.enter.native="editorPressEnter(record, index, $event)"
+                        v-model="transUnitTable.editingUnit.editorValue" prefix="#" rows="auto" resize="auto"
+                        @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
+                        <a-mentions-option v-for="meta in transUnitTable.editingUnit.availableTags" :value="meta.tag">
+                          {{ meta.tag }}<template v-if="meta.count > 1"><b> &times; {{ meta.count }}</b></template>
+                        </a-mentions-option>
+                      </a-mentions>
+                      <a-alert class="editor-validation-message" type="error" show-icon closable
+                        v-if="transUnitTable.editingUnit.errors" message="Validation Failed">
+                        <template slot='description'>
+                          <p :style="{ 'margin-bottom': '3px' }" v-for="msg of transUnitTable.editingUnit.errors">
+                            {{ msg }}
+                          </p>
+                        </template>
+                      </a-alert>
+                    </div>
+                    <!-- translation display value -->
+                    <div v-else @click="startTranslation(record, $event)">
+                      &nbsp;
+                      <template v-for="(part, index) in record.target_parts">
+                        <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
+                        <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
+                          <a-tag class="tag-label" color="orange" :data-part-key="part.key">
+                            {{ part.key }}
+                          </a-tag>
+                        </a-tooltip>
+                      </template>
+                    </div>
+                  </div>
+                  <div class="translation-state">
+                    <a-tooltip v-if="record.state === 'needs-translation' || record.state === 'new'"
+                      title="Need translation">
+                      <a-icon type="exclamation-circle" theme="twoTone" two-tone-color="#f5222d"></a-icon>
+                    </a-tooltip>
+                    <template v-else>
+                      <a-tooltip v-if="record.state === 'translated'" title="Translated but not signed off.">
+                        <a-icon type="info-circle" theme="twoTone" two-tone-color="#faad14"></a-icon>
+                      </a-tooltip>
+                      <a-tooltip v-else title="Done!">
+                        <a-icon type="check-circle" theme="twoTone" two-tone-color="#52c41a"></a-icon>
+                      </a-tooltip>
                     </template>
                   </div>
                 </div>
                 <div slot="recordActions" slot-scope="record">
-
+                  <div>
+                    <a-tooltip v-if="record.state === 'signed-off' || record.state === 'translated'"
+                      @visible-change="(visible) => { record.__signoff_hovered = visible; }">
+                      <template slot="title">
+                        {{ record.state === 'signed-off' ? 'Click to Re-open' : 'Click to sign off' }}
+                      </template>
+                      <a-icon @click="toggleSignOff(record)"
+                        v-if="record.state === 'signed-off' && record.__signoff_hovered || record.state !== 'signed-off' && !record.__signoff_hovered"
+                        type="unlock" theme="twoTone" two-tone-color="#fa8c16">
+                      </a-icon>
+                      <a-icon v-else-if="record.state === 'signed-off'" type="lock" theme="twoTone"
+                        @click="toggleSignOff(record)" two-tone-color="#52c41a"></a-icon>
+                      <a-icon v-else type="lock" theme="twoTone" @click="toggleSignOff(record)"></a-icon>
+                    </a-tooltip>
+                    <a-tooltip v-else title="Not translated">
+                      <a-icon type="lock" theme="filled"></a-icon>
+                    </a-tooltip>
+                  </div>
                 </div>
               </a-table>
+              <a-pagination class="table-pagination" v-model="pagination.pageNum" :total="pagination.totalAmount"
+                :page-size="pagination.pageSize" :page-size-options="[20, 50, 100, 300]" show-size-changer
+                @show-size-change="(current, pageSize) => onPageChange(1, pageSize)"
+                @change="(page, pageSize) => onPageChange(page, null)">
+              </a-pagination>
             </a-spin>
           </a-col>
         </a-row>
@@ -200,12 +276,14 @@
       antdCss: '../../libs/ant-design-vue/1.6.2/antd.min.css',
       antdJs: '../../libs/ant-design-vue/1.6.2/antd.js',
       vueJs: '../../libs/vue/2.6.11/vue.js',
+      vueDashEventJs: '../../libs/vue-dash-event/1.0.1/index.min.js',
       momentJs: '../../libs/moment/2.27.0/moment-with-locales.min.js',
     };
     const config = {
       antdCss: '#vueAntdCssSrc#',
       antdJs: '#vueAntdJsSrc#',
       vueJs: '#vueJsSrc#',
+      vueDashEventJs: '#vueDashEventJsSrc#',
       momentJs: '#momentJsSrc#',
       // localCss: '#localCssSrc#',
     };
@@ -214,6 +292,7 @@
     config.antdJs = config.antdJs !== '#vueAntdJsSrc#' ? config.antdJs : localResources.antdJs;
     config.vueJs = config.vueJs !== '#vueJsSrc#' ? config.vueJs : localResources.vueJs;
     config.momentJs = config.momentJs !== '#momentJsSrc#' ? config.momentJs : localResources.momentJs;
+    config.vueDashEventJs = config.vueDashEventJs !== '#vueDashEventJsSrc#' ? config.vueDashEventJs : localResources.vueDashEventJs;
     const states = [false, false, false, false];
 
 
@@ -244,7 +323,7 @@
           }
 
           if (isInVsCodeIDE) {
-            startApp(null);
+            startApp({ 'MOCK_DATA': null });
           } else {
             loadScriptOrStyle('script', mockDataJsLocation, () => {
               startApp({ 'MOCK_DATA': exports.MOCK_DATA });
@@ -259,9 +338,11 @@
       loadAntd();
     });
 
-    loadScriptOrStyle('script', config.vueJs, () => {
-      states[1] = true;
-      loadAntd();
+    loadScriptOrStyle('script', config.vueDashEventJs, () => {
+      loadScriptOrStyle('script', config.vueJs, () => {
+        states[1] = true;
+        loadAntd();
+      });
     });
 
     loadScriptOrStyle('style', config.antdCss, () => {

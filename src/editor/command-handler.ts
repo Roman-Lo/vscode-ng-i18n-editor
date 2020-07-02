@@ -106,7 +106,7 @@ export class EditorCommandHanlder {
                                 transUnit.target = transItem.target;
                                 transUnit.target_parts = transItem.target_parts ?? [];
                                 transUnit.target_identifier = transItem.target_identifier;                                
-                                transUnit.state = transItem.state;
+                                transUnit.state = transItem.state ?? 'needs-translation';
                             }
                             return transUnit;
                         });
@@ -126,29 +126,6 @@ export class EditorCommandHanlder {
             result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
             this.sendMessage('xliff-file-loaded', result);
         });
-
-        // fs.readFile(file, { encoding: 'utf8' }, (err, data) => {
-        //     let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
-        //     if (err) {
-        //         const errMsg = `failed to read ${file}. Errors: err.message`;
-        //         result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
-        //     } else {
-        //         const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(data, '');
-        //         if (errors && errors.length > 0 || !sourceLocale) {
-        //             const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
-        //             result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
-        //         } else {
-        //             result = {
-        //                 ...this.buildCallbackResultBase('xliff-file-loaded', command),
-        //                 xliffFile: file,
-        //                 sourceLangCode: sourceLocale,
-        //                 targetLangCode: tarLocale,
-        //                 transUnits: Object.values(transUnitByMsgId),
-        //             };
-        //         }
-        //     }
-        //     this.sendMessage('xliff-file-loaded', result);
-        // });
     }
 
     loadTransUnitCodeCtx(command: i18nWebView.LoadTransUnitCodeContextCommand) {
@@ -156,7 +133,7 @@ export class EditorCommandHanlder {
     }
 
     updateTransUnit(command: i18nWebView.TransUnitUpdateCommand) {
-        
+
     }
 
     private sendMessage<K extends i18nWebView.CommandName>(type: K, message: i18nWebView.I18nTranslateWebViewCommandMap[K]) {

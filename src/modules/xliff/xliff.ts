@@ -252,6 +252,8 @@ class XliffParser implements mlAst.Visitor {
           const stateAttr = element.attrs.find(x => x.name === _TARGET_STATE_ATTR);
           if (stateAttr) {
             this._unitMlTargetState = stateAttr.value as any;
+          } else if (innerText.length > 0) {
+            this._unitMlTargetState = 'translated';
           }
           this._unitMlTargetString = innerText;
         } else {

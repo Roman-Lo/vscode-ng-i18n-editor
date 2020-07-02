@@ -65,7 +65,7 @@ export function bootstrap() {
     },
     searchOptions: {
       key: null,
-      state: ['new','needs-translation','signed-off','translated'],
+      state: ['new', 'needs-translation', 'signed-off', 'translated'],
       pageNum: 1,
       pageSize: 10,
     },
@@ -124,20 +124,18 @@ export function bootstrap() {
             }
           }
         }
+        const sourcePhTags = analyzeTransUnitTags(record.source_parts!);
+        const allTagsMeta = buildTagMetaArray(sourcePhTags);
         const editingUnitState: i18nWebView.IWebViewEditingUnitState = {
           key: record.key,
           editorValue: '',
           availableTags: [],
-          allTags: record.source_parts?.filter(x => x.type === 'ph_tag')?.map(x => x.key as string) ?? ([] as string[]),
-          error: null,
+          allTags: allTagsMeta,
+          errors: null,
           ref: record,
         };
         // build editor value
         const editorValueParts: string[] = [];
-        const tagDict = editingUnitState.allTags.reduce<{ [key: string]: boolean }>((a, v) => {
-          a[v] = true;
-          return a;
-        }, {});
         record.target_parts?.forEach(p => {
           if (p.type === 'text') {
             editorValueParts.push(p.displayHtml);
@@ -146,7 +144,9 @@ export function bootstrap() {
             // delete tagDict[p.key];
           }
         });
-        const availableTags = Object.keys(tagDict);
+
+        const targetPhTags = analyzeTransUnitTags(record.target_parts!);
+        const availableTags = buildAvailableTagMetaArray(targetPhTags, allTagsMeta);
         editingUnitState.availableTags = availableTags;
         editingUnitState.editorValue = editorValueParts.join('');
         pageData.transUnitTable.editingUnit = editingUnitState;
@@ -169,8 +169,16 @@ export function bootstrap() {
           const {
             allTags
           } = pageData.transUnitTable.editingUnit;
-          const availables = allTags.filter(needle => value.indexOf(`#${needle}`) < 0);
+          const availables: i18nWebView.IWebViewEditorTagMeta[] = allTags.map(x => {
+            const regex = new RegExp(`(^|\\s)#${x.tag}($|\\s)`, 'g');
+            const matchCount = value.match(regex)?.length ?? 0;
+            return {
+              tag: x.tag,
+              count: x.count - matchCount,
+            };
+          }).filter(x => x.count > 0);
           pageData.transUnitTable.editingUnit.availableTags = availables;
+          pageData.transUnitTable.editingUnit.errors = null;
         }
       },
       tagSelected(option: { value: string }, prefix: string) {
@@ -191,8 +199,8 @@ export function bootstrap() {
           } = curEditState;
           const tagCounter: { [key: string]: number } = {};
           const tagNeedleDict = allTags.reduce<{ [key: string]: string }>((a, v) => {
-            a[`#${v}`] = v;
-            tagCounter[v] = 0;
+            a[`#${v.tag}`] = v.tag;
+            tagCounter[v.tag] = v.count;
             return a;
           }, {});
 
@@ -201,7 +209,7 @@ export function bootstrap() {
           let target: string = '';
           let targetIdfr: string = '';
           const pushTextPartFromBuffer = (bArr: string[]) => {
-            const textContent = bArr.join(' ').trim();
+            const textContent = bArr.join(' ').replace(/\s+/, ' ');
             if (textContent.length > 0) {
               parts.push({
                 key: null,
@@ -211,11 +219,11 @@ export function bootstrap() {
                 identifier: textContent,
               });
               target += textContent;
-              targetIdfr += textContent;
+              targetIdfr += textContent.trim();
             }
           };
-
-          editorValue.split(' ').forEach(buf => {
+          const processedEditorValue = editorValue.split('\n').map(x => x.trim()).join('');
+          processedEditorValue.split(' ').forEach(buf => {
             if (tagNeedleDict[buf]) {
               pushTextPartFromBuffer(buffer);
               // push tag 
@@ -224,7 +232,7 @@ export function bootstrap() {
               if (srcPart) {
                 target += srcPart.rawHtml;
                 targetIdfr += srcPart.identifier;
-                tagCounter[tagKey]++;
+                tagCounter[tagKey]--;
                 parts.push(srcPart);
               }
               // clear buffer
@@ -240,10 +248,10 @@ export function bootstrap() {
           let hasError = false;
           Object.keys(tagCounter).forEach(tagKey => {
             const count = tagCounter[tagKey];
-            if (count === 1) {
+            if (count === 0) {
               return;
             }
-            if (count === 0) {
+            if (count > 0) {
               missingKeys.push(tagKey);
               hasError = true;
             } else {
@@ -254,8 +262,8 @@ export function bootstrap() {
           if (hasError) {
             let errors = [];
             errors.push(...missingKeys.map(x => `Missing placeholder '${x}';`));
-            errors.push(...duplicateKeys.map(x => `Placeholder '${x}' declared more than once;`));
-            curEditState.error = errors.join(' ');
+            errors.push(...duplicateKeys.map(x => `Extra placeholder '${x}' was/were detected, please check and remove it;`));
+            curEditState.errors = errors;
             ($event.srcElement as HTMLElement).focus();
             return false;
           }
@@ -461,7 +469,90 @@ export function bootstrap() {
     }
   });
 
+  function analyzeTransUnitTags(parts: i18n.I18nHtmlPart[]): i18nWebView.IWebViewTagAnalyzeResult {
+    const phTagParts = parts.filter(x => x.type === 'ph_tag');
+    const pairs: {
+      [name: string]: {
+        startTag: string;
+        closeTag: string;
+        startCount: number;
+        closeCount: number;
+      }
+    } = {};
+    const standalones: { [name: string]: number } = {};
+    phTagParts?.forEach(p => {
+      if (p.key) {
+        if (p.key.startsWith('START_TAG_')) {
+          let type = p.key.replace('START_TAG_', '');
+          let tar = pairs[type] || { startCount: 0, closeCount: 0, startTag: p.key, closeTag: `CLOSE_TAG_${type}` };
+          tar.startCount++;
+          pairs[type] = tar;
+        } else if (p.key.startsWith('CLOSE_TAG_')) {
+          let type = p.key.replace('CLOSE_TAG_', '');
+          let tar = pairs[type] || { startCount: 0, closeCount: 0, startTag: `START_TAG_${type}`, closeTag: p.key };
+          tar.closeCount++;
+          pairs[type] = tar;
+        } else {
+          if (standalones[p.key]) {
+            standalones[p.key] += 1;
+          } else {
+            standalones[p.key] = 1;
+          }
+        }
+      }
+    });
+    return { pairs, standalones };
+  }
 
+  function buildTagMetaArray(analyzeResult: i18nWebView.IWebViewTagAnalyzeResult): i18nWebView.IWebViewEditorTagMeta[] {
+    const result: i18nWebView.IWebViewEditorTagMeta[] = [];
+    if (analyzeResult.pairs) {
+      for (const tagType in analyzeResult.pairs) {
+        const pair = analyzeResult.pairs[tagType];
+        result.push({
+          tag: pair.startTag,
+          count: pair.startCount,
+        }, {
+          tag: pair.closeTag,
+          count: pair.closeCount,
+        });
+      }
+    }
+    if (analyzeResult.standalones) {
+      for (const tagName in analyzeResult.standalones) {
+        result.push({ tag: tagName, count: 1 });
+      }
+    }
+    return result;
+  }
+
+  function buildAvailableTagMetaArray(
+    analyzeResult: i18nWebView.IWebViewTagAnalyzeResult,
+    base: i18nWebView.IWebViewEditorTagMeta[]
+  ): i18nWebView.IWebViewEditorTagMeta[] {
+    const metaDict = base.reduce<{ [name: string]: number }>((d, m) => {
+      d[m.tag] = m.count;
+      return d;
+    }, {});
+    for (const tag in analyzeResult.standalones) {
+      if (metaDict[tag]) {
+        metaDict[tag]--;
+      }
+    }
+    for (const key in analyzeResult.pairs) {
+      const pair = analyzeResult.pairs[key];
+      if (metaDict[pair.startTag]) {
+        metaDict[pair.startTag] -= pair.startCount;
+      }
+      if (metaDict[pair.closeTag]) {
+        metaDict[pair.closeTag] -= pair.closeCount;
+      }
+    }
+    const availableTags = Object.keys(metaDict).map<i18nWebView.IWebViewEditorTagMeta>(tag => {
+      return { tag, count: metaDict[tag] };
+    }).filter(m => m.count > 0);
+    return availableTags;
+  }
 
   function generateCommandBase(): ExtEventBase {
     const now = new Date();

@@ -90,12 +90,29 @@ declare namespace i18nWebView // i18n-webview
     __key_for_search__: string;
   }
 
+  interface IWebViewEditorTagMeta {
+    tag: string;
+    count: number;
+  }
+
+  interface IWebViewTagAnalyzeResult {
+    pairs: {
+      [name: string]: {
+        startTag: string;
+        closeTag: string;
+        startCount: number;
+        closeCount: number;
+      }
+    };
+    standalones: { [name: string]: number };
+  }
+
   interface IWebViewEditingUnitState {
     key: string;
     editorValue: string;
-    availableTags: string[];
-    allTags: string[];
-    error: string | null;
+    availableTags: IWebViewEditorTagMeta[];
+    allTags: IWebViewEditorTagMeta[];
+    errors: string[] | null;
     ref: ITransUnitView;
   }
 

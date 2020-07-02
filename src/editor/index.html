@@ -22,6 +22,10 @@
       margin-bottom: 0;
     }
 
+    .ant-tag.tag-label {
+      margin: 0;
+    }
+
     .ant-table-header-column {
       width: 100%;
     }
@@ -35,8 +39,8 @@
       display: inline-block;
     }
 
-    .editor-validation-message {
-      margin-top: 3px;
+    .ant-alert.editor-validation-message {
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -109,13 +113,18 @@
                     ref='editor-div'>
                     <a-mentions autoFocus v-model="transUnitTable.editingUnit.editorValue" prefix="#"
                       @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
-                      <a-mentions-option v-for="tag in transUnitTable.editingUnit.availableTags" :value="tag">
-                        {{tag}}
+                      <a-mentions-option v-for="meta in transUnitTable.editingUnit.availableTags" :value="meta.tag">
+                        {{ meta.tag }}<template v-if="meta.count > 1"> &times; {{ meta.count }}</template>
                       </a-mentions-option>
                     </a-mentions>
-                    <div class="editor-validation-message" v-show="transUnitTable.editingUnit.error">
-                      <a-alert type="error" :message="transUnitTable.editingUnit.error" showIcon />
-                    </div>
+                    <a-alert class="editor-validation-message" type="error" show-icon closable
+                      v-if="transUnitTable.editingUnit.errors" message="Validation Failed">
+                      <template slot='description'>
+                        <p :style="{ 'margin-bottom': '3px' }" v-for="msg of transUnitTable.editingUnit.errors">
+                          {{ msg }}
+                        </p>
+                      </template>
+                    </a-alert>
                   </div>
                   <!-- translation display value -->
                   <div v-else @click="startTranslation(record, $event)">

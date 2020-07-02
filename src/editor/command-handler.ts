@@ -156,7 +156,7 @@ export class EditorCommandHanlder {
     }
 
     updateTransUnit(command: i18nWebView.TransUnitUpdateCommand) {
-
+        
     }
 
     private sendMessage<K extends i18nWebView.CommandName>(type: K, message: i18nWebView.I18nTranslateWebViewCommandMap[K]) {

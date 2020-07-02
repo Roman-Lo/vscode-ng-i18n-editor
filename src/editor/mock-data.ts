@@ -4966,6 +4966,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
       }
     ],
     loaded: false,
+    filtering: false,
   },
   pagination: {
     totalAmount: 0,

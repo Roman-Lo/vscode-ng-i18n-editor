@@ -143,6 +143,7 @@ declare namespace i18nWebView // i18n-webview
     columns: { [key: string]: any }[];
     transUnits: ITransUnitView[];
     loaded: boolean;
+    filtering: boolean;
   }
 
   interface IWebViewTableFilter {

@@ -82,6 +82,7 @@ export function bootstrap() {
       columns: transUnitTableColumns,
       transUnits: [],
       loaded: false,
+      filtering: false,
     },
     pagination: {
       totalAmount: 0,
@@ -95,6 +96,14 @@ export function bootstrap() {
   var app = new Vue({
     el: '#app',
     data: pageData,
+    watch: {
+      'filterOptions.sourceKeyword': () => {
+        app._debounceFilter800(1);
+      },
+      'filterOptions.targetKeyword': () => {
+        app._debounceFilter800(1);
+      },
+    },
     mounted() {
       document.getElementById('app')?.removeAttribute('pending');
       this.loadXliffFiles();
@@ -117,9 +126,15 @@ export function bootstrap() {
         } else if (!checked && idx >= 0) {
           pageData.filterOptions.state.splice(idx, 1);
         }
-        applySearchFilter(pageData.filterOptions);
-        this.onPageChange(1);
+        this._debounceFilter800(1);
+        // applySearchFilter(pageData.filterOptions);
+        // this.onPageChange(1);
       },
+      _debounceFilter800: debounce((pageNum: number, pageSize: number | undefined) => {
+        applySearchFilter(pageData.filterOptions);
+        app.onPageChange(pageNum, pageSize);
+        pageData.transUnitTable.filtering = false;
+      }, 800) as (pageNum: number, pageSize?: number) => void,
       // pagination
       onPageChange(pageNum: number, pageSize?: number) {
         if (pageSize) {
@@ -462,8 +477,8 @@ export function bootstrap() {
             _commandHash: null,
             _error: null,
             __signoff_hovered: false,
-            __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`,
-            __key_for_search_target__: `~|${[t.target, t.target_identifier].filter(x => !!x).join('|~|')}|~`,
+            __key_for_search__: `~|${[t.key, t.source_identifier, t.meaning, t.description].filter(x => x !== null).join('|~|')}|~`.toUpperCase(),
+            __key_for_search_target__: `~|${[t.target, t.target_identifier].filter(x => !!x).join('|~|')}|~`.toUpperCase(),
           });
           transUnits.push(viewObj);
           transUnitsByKey[viewObj.key] = viewObj;
@@ -541,11 +556,11 @@ export function bootstrap() {
     const filtered = _transUnits.filter(x => {
       let flag = true;
       if (filterOptions.sourceKeyword && filterOptions.sourceKeyword.trim().length > 0) {
-        const needle = filterOptions.sourceKeyword.trim();
+        const needle = filterOptions.sourceKeyword.trim().toUpperCase();
         flag = x.__key_for_search__.indexOf(needle) >= 0;
       }
       if (flag && filterOptions.targetKeyword && filterOptions.targetKeyword.trim().length > 0) {
-        const needle = filterOptions.targetKeyword.trim();
+        const needle = filterOptions.targetKeyword.trim().toUpperCase();
         flag = x.__key_for_search_target__.indexOf(needle) >= 0;
       }
       if (flag && filterOptions.state) {
@@ -685,5 +700,19 @@ export function bootstrap() {
     return event.data;
   }
 
+  function debounce(fn: Function, delay: number) {
+    let timeoutID: undefined | number = undefined;
+    return function (this: any) {
+      window.clearTimeout(timeoutID);
+      let args = arguments;
+      let that = this;
+      timeoutID = window.setTimeout(function () {
+        fn.apply(that, args);
+      }, delay);
+    };
+  }
+
 
 }
+
+

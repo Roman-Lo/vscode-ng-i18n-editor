@@ -149,13 +149,13 @@
         <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
           <a-col :span="24">
             <a-spin :spinning="xliffFileLoading" tip="Loading...">
-              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false"
+              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false" :loading="transUnitTable.filtering"
                 bordered>
                 <!-- title slots -->
                 <span class="source-title-column" slot="sourceTitle">
                   <span>Source ({{ transUnitTable.sourceLocale }})</span>
                   <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input placeholder="Enter keyword to search">
+                    <a-input v-model="filterOptions.sourceKeyword" placeholder="Enter keyword to search">
                       <a-icon slot="prefix" type="search" />
                     </a-input>
                   </span>
@@ -163,7 +163,7 @@
                 <span class="source-title-column" slot="targetTitle">
                   <span>Translation ({{ transUnitTable.targetLocale }})</span>
                   <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input placeholder="Enter keyword to search">
+                    <a-input v-model="filterOptions.targetKeyword" placeholder="Enter keyword to search">
                       <a-icon slot="prefix" type="search" />
                     </a-input>
                   </span>

@@ -340,6 +340,10 @@ export function bootstrap() {
         this.updateTransUnit(record);
       },
 
+      onCodeCtxClick(ctx: i18n.TransUnitContext, $event: MouseEvent) {
+        this.revealCodeContext(ctx);
+      },
+
 
       // command caller
       loadXliffFiles() {
@@ -372,14 +376,6 @@ export function bootstrap() {
           }
         }
       },
-      markAsTranslated(transUnit: i18nWebView.ITransUnitView) {
-        transUnit.state = 'translated';
-        this.updateTransUnit(transUnit);
-      },
-      markAsSignedOff(transUnit: i18nWebView.ITransUnitView) {
-        transUnit.state = 'signed-off';
-        this.updateTransUnit(transUnit);
-      },
       updateTransUnit(transUnit: i18nWebView.ITransUnitView) {
         if (pageData.selectedXliffFile) {
           let cmdBase = generateCommandBase();
@@ -393,8 +389,17 @@ export function bootstrap() {
           );
         }
       },
-      search(pageNum: number) {
-
+      revealCodeContext(block: i18n.TransUnitContext) {
+        let cmdBase = generateCommandBase();
+        sendCommand('reveal-code-ctx',
+          Object.assign(cmdBase, {
+            file: block.sourceFile,
+            blocks: [{
+              start: block.lineNumber,
+              end: -1
+            }],
+          })
+        );
       },
       triggerReady() {
         if (isInVsCodeIDE) {
@@ -469,12 +474,6 @@ export function bootstrap() {
         pageData.transUnitTable.targetLocale = data.targetLangCode;
         const filtered = applySearchFilter(pageData.filterOptions);
         app.onPageChange(1);
-        // pageData.pagination.totalAmount = filtered.length;
-        // pageData.pagination.pageNum = 1;
-        // const {
-        //   pageNum, pageSize
-        // } = pageData.pagination;
-        // pageData.transUnitTable.transUnits = paginateData(filtered, pageNum, pageSize);
       }
     },
     'trans-unit-code-ctx-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['trans-unit-code-ctx-loaded']) => {
@@ -504,10 +503,10 @@ export function bootstrap() {
       } else {
         // reload is needed！
         app.$warning({
-          title: '文件修改提醒',
+          title: 'File Modification Notice',
           content: `
           <div>
-            <p>当前文件已被修改，页面即将重新加载。</p>
+            <p>The current xliff file has been modified outside. The page will be reloaded, all the unsave change will be disgarded.</p>
           </div>
           `,
           onOk() {
@@ -519,7 +518,13 @@ export function bootstrap() {
           }
         });
       }
-    }
+    },
+
+    'code-ctx-revealed': (data: i18nWebView.I18nTranslateWebViewCommandMap['code-ctx-revealed']) => {
+      if (errorDetect(data)) {
+        // TODO:
+      }
+    },
   };
 
 

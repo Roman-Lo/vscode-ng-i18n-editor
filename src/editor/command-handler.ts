@@ -136,6 +136,10 @@ export class EditorCommandHanlder {
 
     }
 
+    revealCodeCtx(command: i18nWebView.CodeContextRevealCommand) {
+        
+    }
+
     private sendMessage<K extends i18nWebView.CommandName>(type: K, message: i18nWebView.I18nTranslateWebViewCommandMap[K]) {
         this.webview.postMessage({
             command: type,

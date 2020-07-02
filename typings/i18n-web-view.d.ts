@@ -58,6 +58,23 @@ declare namespace i18nWebView // i18n-webview
     }[];
   }
 
+  interface CodeContextRevealCommand extends ExtEventBase {
+    readonly file: string;
+    readonly blocks: {
+      start: number;
+      /**
+       * -1 as not defined
+       *
+       * @type {number}
+       */
+      end: number;
+    }[];
+  }
+
+  interface CodeContextRevealResultEvent extends ExtResultCallbackEvent {
+    readonly file: string;
+  }
+
   interface I18nTranslateWebViewCommandMap {
     "list-xliff-files": ListXliffFilesCommand;
     "list-xliff-files-loaded": ListXliffFilesResultEvent;
@@ -73,7 +90,8 @@ declare namespace i18nWebView // i18n-webview
 
     "xliff-file-updated": XliffFileUpdatedEvent;
 
-    "context": any;
+    "reveal-code-ctx": CodeContextRevealCommand;
+    "code-ctx-revealed": CodeContextRevealResultEvent;
   }
 
   type CommandName = keyof I18nTranslateWebViewCommandMap;
@@ -87,7 +105,7 @@ declare namespace i18nWebView // i18n-webview
     _updating: boolean;
     _commandHash: string | null;
     _error?: string | null;
-    __signoff_hovered: boolean;
+    __signoff_hovered?: boolean;
     __key_for_search__: string;
     __key_for_search_target__: string;
   }

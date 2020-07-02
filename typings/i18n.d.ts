@@ -10,7 +10,7 @@ declare namespace i18n {
 
   type TranslationStateType = keyof TranslationStateDict;
 
-  interface TransUnitContextGroup {
+  interface TransUnitContext {
     sourceFile: string;
     lineNumber: number;
   }
@@ -29,7 +29,7 @@ declare namespace i18n {
     target_parts?: I18nHtmlPart[] | null;
 
     state?: TranslationStateType | null;
-    contextGroups: TransUnitContextGroup[];
+    contextGroups: TransUnitContext[];
   }
 
   interface I18nHtmlPart {

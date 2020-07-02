@@ -152,7 +152,7 @@ class XliffParser implements mlAst.Visitor {
   private _unitMlTargetState !: i18n.TranslationStateType | null;
   private _unitMlDescription !: string | null;
   private _unitMlMeaning !: string | null;
-  private _unitMlContextGroups !: i18n.TransUnitContextGroup[];
+  private _unitMlContextGroups !: i18n.TransUnitContext[];
 
   private _unitMlCtxGroupSrcFile !: string | null;
   private _unitMlCtxGroupLineNumber !: number | null;

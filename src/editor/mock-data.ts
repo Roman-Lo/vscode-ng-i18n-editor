@@ -55,7 +55,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
             "sourceFile": "libs/ngx-dida-uitk/src/lib/suggestion-typeahead/suggestion-typeahead.component.html"
           }
         ],
-        "description": null,
+        "description": "目的地",
         "key": "Text_Label_Destination",
         "meaning": null,
         "source": "目的地",
@@ -94,9 +94,9 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
             "sourceFile": "libs/ngx-dida-uitk/src/lib/suggestion-typeahead/suggestion-typeahead.component.html"
           }
         ],
-        "description": null,
+        "description": "就是搜索关键字的时候的东西",
         "key": "Text_Label_SearchByKeyword",
-        "meaning": null,
+        "meaning": "搜关键字",
         "source": "搜关键字",
         "source_identifier": "搜关键字",
         "source_parts": [

@@ -139,7 +139,9 @@
                     </template>
                   </div>
                   <div class="transunit-meta">
-                    Key: {{ record.key }}
+                    <strong>Key:</strong> {{ record.key }}
+                    <template v-if="record.meaning"><strong>Meaning:</strong> {{ record.meaning }}</template>
+                    <template v-if="record.description"><strong>Desc:</strong> {{ record.description }}</template>
                   </div>
                 </div>
                 <div slot="targetColumn" slot-scope="record, n, index" class="translation-column">

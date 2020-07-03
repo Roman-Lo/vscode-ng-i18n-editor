@@ -143,6 +143,14 @@ export class Xliff {
     return { sourceLocale, targetLocale, transUnitByMsgId, errors: errors.length > 0 ? errors : null };
   }
 
+  static loadFileLocaleInfo(content: string, url: string) {
+    const xliffParser = new XliffParser();
+    const info = xliffParser.getLocaleInfo(content, url);
+    return {
+      sourceLocale: info.sourceLocale,
+      targetLocale: info.targetLocale,
+    }
+  }
 }
 
 
@@ -166,7 +174,10 @@ class XliffParser implements mlAst.Visitor {
   private _locale: string | null = null;
   private _srcLocale: string | null = null;
 
+  private _localeOnly: boolean = false;
+
   parse(xliff: string, url: string) {
+    this._localeOnly = false;
     this._unitMlSourceString = null;
     this._unitMlTargetString = null;
     this._transUnitByMsgId = {};
@@ -184,7 +195,15 @@ class XliffParser implements mlAst.Visitor {
     };
   }
 
-
+  getLocaleInfo(xliff: string, url: string) {
+    this._localeOnly = true;
+    const xml = new XmlParser().parse(xliff, url);
+    mlAst.visitAll(this, xml.rootNodes, null);
+    return {
+      targetLocale: this._locale,
+      sourceLocale: this._srcLocale,
+    };
+  }
 
   visitElement(element: mlAst.Element, context: any): any {
     switch (element.name) {
@@ -309,6 +328,9 @@ class XliffParser implements mlAst.Visitor {
         }
         if (srcLocaleAttr) {
           this._srcLocale = srcLocaleAttr.value;
+        }
+        if (this._localeOnly) {
+          return;
         }
         mlAst.visitAll(this, element.children, null);
         break;

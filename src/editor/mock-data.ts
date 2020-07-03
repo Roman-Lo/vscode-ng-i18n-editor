@@ -4972,5 +4972,18 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
     totalAmount: 0,
     pageNum: 1,
     pageSize: 50,
+  },
+
+  statusBar: {
+    counters: {
+      needHandleCount: 0,
+      signedOffUnitCount: 0,
+      totalUnitCount: 0
+    },
+    process: {
+      commandByHash: {},
+      finished: true,
+      hasError: false,
+    },
   }
 };

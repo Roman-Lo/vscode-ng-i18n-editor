@@ -27,13 +27,15 @@ declare namespace i18nWebView // i18n-webview
 
   interface TransUnitUpdateCommand extends ExtEventBase {
     readonly xliffFile: string;
+    readonly sourceLocale: string;
+    readonly targetLocale: string;
     readonly transUnits: i18n.TransUnit[];
   }
 
   interface TransUnitUpdateResult extends ExtResultCallbackEvent {
     readonly xliffFile: string;
     readonly transUnits: i18n.TransUnit[];
-    readonly errors: { [key: string]: string };
+    readonly errors: { [key: string]: string } | null;
   }
 
   interface XliffFileUpdatedEvent extends ExtEventBase {
@@ -158,6 +160,24 @@ declare namespace i18nWebView // i18n-webview
     state: i18n.TranslationStateType[];
   }
 
+  interface IWebViewStatusBar {
+    counters: {
+      needHandleCount: number;
+      signedOffUnitCount: number;
+      totalUnitCount: number;
+    };
+    process: {
+      commandByHash: {
+        [hash: string]: {
+          command: string;
+          error: string | null;
+        }
+      };
+      finished: boolean;
+      hasError: boolean;
+    };
+  }
+
   interface IWebViewPageData {
     settings: {
       mode: 'git-control' | 'db-control';
@@ -185,10 +205,7 @@ declare namespace i18nWebView // i18n-webview
       pageSize: number;
       pageNum: number;
     };
-    // counters?: {
-    //   needHandle: number;
-    //   translated: number;
-    // }
+    statusBar: IWebViewStatusBar;
   }
 
 }

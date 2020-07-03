@@ -59,7 +59,7 @@
     }
 
     .ant-pagination.table-pagination {
-      text-align: right;
+      text-align: center;
       margin-top: 10px;
     }
 
@@ -122,6 +122,32 @@
     .state-item+.state-item {
       margin-top: 3px;
     }
+
+
+    [data-page-section="status-bar-section"] {
+      margin: 0 -12px -12px !important;
+    }
+
+    .status-bar {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      width: 100%;
+      background-color: rgba(0, 0, 0, 0.13);
+      height: 30px;
+      line-height: 30px;
+    }
+
+    .status-bar>.status-item {
+      flex: auto;
+      text-align: right;
+      padding: 0 10px;
+    }
+
+    #app .ant-back-top {
+      right: 20px;
+      bottom: 45px;
+    }
   </style>
 </head>
 
@@ -149,104 +175,52 @@
         <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
           <a-col :span="24">
             <a-spin :spinning="xliffFileLoading" tip="Loading...">
-              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false"
-                :loading="transUnitTable.filtering" bordered>
-                <!-- title slots -->
-                <span class="source-title-column" slot="sourceTitle">
-                  <span>Source ({{ transUnitTable.sourceLocale }})</span>
-                  <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input :value="filterOptions.sourceKeyword" allow-clear @change="onSourceKeywordChange"
-                      placeholder="Enter keyword to search">
-                      <a-icon slot="prefix" type="search" />
-                    </a-input>
-                  </span>
-                </span>
-                <span class="source-title-column" slot="targetTitle">
-                  <span>Translation ({{ transUnitTable.targetLocale }})</span>
-                  <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input :value="filterOptions.targetKeyword" allow-clear @change="onTargetKeywordChange"
-                      placeholder="Enter keyword to search">
-                      <a-icon slot="prefix" type="search" />
-                    </a-input>
-                  </span>
-                  <span :style="{ 'margin-left': '10px' }">
-                    <template v-for="(item, key) in transStateOptions">
-                      <a-tooltip :title="item.name" placement="bottom">
-                        <a-checkable-tag :key="item.state" :checked="filterOptions.state.indexOf(item.state) > -1"
-                          @change="checked => selectStateFilter(item.state, checked)">
-                          {{ item.abbr }}
-                        </a-checkable-tag>
-                      </a-tooltip>
-                    </template>
-                  </span>
-                </span>
-                <!-- row data slots -->
-                <template slot="sourceColumn" slot-scope="record">
-                  <div class="transunit-html">
-                    <template v-for="part in record.source_parts">
-                      <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
-                      <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
-                        <a-tag class="tag-label" color="orange" :data-part-key="part.key">
-                          {{ part.key }}
-                        </a-tag>
-                      </a-tooltip>
-                    </template>
-                  </div>
-                  <div class="transunit-meta">
-                    <div>
-                      <span class="key-field"><strong>Key:</strong> {{ record.key }}</span>
-                      <span class="icon" v-if="record.meaning || record.description">
-                        <a-tooltip placement="right">
-                          <div slot="title" :style="{ 'font-size': '12px', 'opacity': 0.8 }">
-                            <div v-if="record.meaning"><strong>Meaning:</strong> {{ record.meaning }}</div>
-                            <div v-if="record.description"><strong>Description:</strong> {{ record.description }}</div>
-                          </div>
-                          <a-icon class="pointer" type="question-circle" theme="twoTone"></a-icon>
-                        </a-tooltip>
-                      </span>
-                      <span class="icon">
-                        <a-popover placement="right">
-                          <div slot="title">
-                            Code Context <small>({{ record.contextGroups.length | number }} in total)</small>
-                          </div>
-                          <div slot="content">
-                            <p :style="{ margin: 0 }">For more details, please visit the following location(s):</p>
-                            <p v-for="ctx in record.contextGroups" :style="{ margin: '3px 0', padding: '0 3px' }">
-                              <a href=""
-                                @click.prevent.stop="onCodeCtxClick(record, ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
-                            </p>
-                          </div>
-                          <a-icon class="pointer" type="file-text" theme="twoTone"></a-icon>
-                        </a-popover>
-                      </span>
-                    </div>
-                  </div>
+              <a-alert v-if="!transUnitTable.loaded" :type="xliffFileLoading ? 'info' : 'error'" show-icon>
+                <template slot="message">
+                  <span v-if="xliffFileLoading">Loading</span>
+                  <span v-else>Failed</span>
                 </template>
-                <div slot="targetColumn" slot-scope="record, n, index" class="translation-column">
-                  <div class="translation-target">
-                    <!-- translation editor -->
-                    <div v-if="transUnitTable.editingUnit && transUnitTable.editingUnit.key === record.key"
-                      ref='editor-div'>
-                      <a-mentions class="translation-editor-mentions" autoFocus
-                        @keydown.enter.native="editorPressEnter(record, index, $event)"
-                        v-model="transUnitTable.editingUnit.editorValue" prefix="#" rows="auto" resize="auto"
-                        @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
-                        <a-mentions-option v-for="meta in transUnitTable.editingUnit.availableTags" :value="meta.tag">
-                          {{ meta.tag }}<template v-if="meta.count > 1"><b> &times; {{ meta.count }}</b></template>
-                        </a-mentions-option>
-                      </a-mentions>
-                      <a-alert class="editor-validation-message" type="error" show-icon closable
-                        v-if="transUnitTable.editingUnit.errors" message="Validation Failed">
-                        <template slot='description'>
-                          <p :style="{ 'margin-bottom': '3px' }" v-for="msg of transUnitTable.editingUnit.errors">
-                            {{ msg }}
-                          </p>
-                        </template>
-                      </a-alert>
-                    </div>
-                    <!-- translation display value -->
-                    <div v-else @click="startTranslation(record, $event)">
-                      <template v-for="(part, index) in record.target_parts">
+                <template slot="description">
+                  <p v-if="xliffFileLoading">Translation units are on the way...</p>
+                  <p v-else>Failed to load translation units in file: {{ selectedXliffFile }}</p>
+                </template>
+              </a-alert>
+              <template v-else>
+                <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false"
+                  :loading="transUnitTable.filtering" bordered>
+                  <!-- title slots -->
+                  <span class="source-title-column" slot="sourceTitle">
+                    <span>Source ({{ transUnitTable.sourceLocale }})</span>
+                    <span :style="{ flex: 'auto', 'margin-left': '10px' }">
+                      <a-input :value="filterOptions.sourceKeyword" allow-clear @change="onSourceKeywordChange"
+                        placeholder="Enter keyword to search">
+                        <a-icon slot="prefix" type="search" />
+                      </a-input>
+                    </span>
+                  </span>
+                  <span class="source-title-column" slot="targetTitle">
+                    <span>Translation ({{ transUnitTable.targetLocale }})</span>
+                    <span :style="{ flex: 'auto', 'margin-left': '10px' }">
+                      <a-input :value="filterOptions.targetKeyword" allow-clear @change="onTargetKeywordChange"
+                        placeholder="Enter keyword to search">
+                        <a-icon slot="prefix" type="search" />
+                      </a-input>
+                    </span>
+                    <span :style="{ 'margin-left': '10px' }">
+                      <template v-for="(item, key) in transStateOptions">
+                        <a-tooltip :title="item.name" placement="bottom">
+                          <a-checkable-tag :key="item.state" :checked="filterOptions.state.indexOf(item.state) > -1"
+                            @change="checked => selectStateFilter(item.state, checked)">
+                            {{ item.abbr }}
+                          </a-checkable-tag>
+                        </a-tooltip>
+                      </template>
+                    </span>
+                  </span>
+                  <!-- row data slots -->
+                  <template slot="sourceColumn" slot-scope="record">
+                    <div class="transunit-html">
+                      <template v-for="part in record.source_parts">
                         <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
                         <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
                           <a-tag class="tag-label" color="orange" :data-part-key="part.key">
@@ -255,50 +229,124 @@
                         </a-tooltip>
                       </template>
                     </div>
-                  </div>
-                  <div class="translation-state">
-                    <div class="state-item">
-                      <a-tooltip v-if="record.state === 'needs-translation' || record.state === 'new'" placement="right"
-                        title="Need translation">
-                        <a-icon type="exclamation-circle" theme="twoTone" two-tone-color="#f5222d" class="pointer">
-                        </a-icon>
-                      </a-tooltip>
-                      <template v-else>
-                        <a-tooltip v-if="record.state === 'translated'" title="Translated but not signed off."
-                          placement="right">
-                          <a-icon class="pointer" type="info-circle" theme="twoTone" two-tone-color="#faad14"></a-icon>
-                        </a-tooltip>
-                        <a-tooltip v-else title="Done!" placement="right">
-                          <a-icon class="pointer" type="check-circle" theme="twoTone" two-tone-color="#52c41a"></a-icon>
-                        </a-tooltip>
-                      </template>
+                    <div class="transunit-meta">
+                      <div>
+                        <span class="key-field"><strong>Key:</strong> {{ record.key }}</span>
+                        <span class="icon" v-if="record.meaning || record.description">
+                          <a-tooltip placement="right">
+                            <div slot="title" :style="{ 'font-size': '12px', 'opacity': 0.8 }">
+                              <div v-if="record.meaning"><strong>Meaning:</strong> {{ record.meaning }}</div>
+                              <div v-if="record.description"><strong>Description:</strong> {{ record.description }}
+                              </div>
+                            </div>
+                            <a-icon class="pointer" type="question-circle" theme="twoTone"></a-icon>
+                          </a-tooltip>
+                        </span>
+                        <span class="icon">
+                          <a-popover placement="right">
+                            <div slot="title">
+                              Code Context <small>({{ record.contextGroups.length | number }} in total)</small>
+                            </div>
+                            <div slot="content">
+                              <p :style="{ margin: 0 }">For more details, please visit the following location(s):</p>
+                              <p v-for="ctx in record.contextGroups" :style="{ margin: '3px 0', padding: '0 3px' }">
+                                <a href=""
+                                  @click.prevent.stop="onCodeCtxClick(record, ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
+                              </p>
+                            </div>
+                            <a-icon class="pointer" type="file-text" theme="twoTone"></a-icon>
+                          </a-popover>
+                        </span>
+                      </div>
                     </div>
-                    <div class="state-item">
-                      <a-tooltip v-if="record.state === 'signed-off' || record.state === 'translated'" placement="right"
-                        @visible-change="(visible) => { record.__signoff_hovered = visible; }">
-                        <template slot="title">
-                          {{ record.state === 'signed-off' ? 'Click to Re-open' : 'Click to sign off' }}
+                  </template>
+                  <div slot="targetColumn" slot-scope="record, n, index" class="translation-column">
+                    <div class="translation-target">
+                      <!-- translation editor -->
+                      <div v-if="transUnitTable.editingUnit && transUnitTable.editingUnit.key === record.key"
+                        ref='editor-div'>
+                        <a-mentions class="translation-editor-mentions" autoFocus
+                          @keydown.enter.native="editorPressEnter(record, index, $event)"
+                          v-model="transUnitTable.editingUnit.editorValue" prefix="#" rows="auto" resize="auto"
+                          @blur="editorBlur(record, $event)" @select="tagSelected" @change="editorValueChange">
+                          <a-mentions-option v-for="meta in transUnitTable.editingUnit.availableTags" :value="meta.tag">
+                            {{ meta.tag }}<template v-if="meta.count > 1"><b> &times; {{ meta.count }}</b></template>
+                          </a-mentions-option>
+                        </a-mentions>
+                        <a-alert class="editor-validation-message" type="error" show-icon closable
+                          v-if="transUnitTable.editingUnit.errors" message="Validation Failed">
+                          <template slot='description'>
+                            <p :style="{ 'margin-bottom': '3px' }" v-for="msg of transUnitTable.editingUnit.errors">
+                              {{ msg }}
+                            </p>
+                          </template>
+                        </a-alert>
+                      </div>
+                      <!-- translation display value -->
+                      <div v-else @click="startTranslation(record, $event)">
+                        <template v-for="(part, index) in record.target_parts">
+                          <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
+                          <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
+                            <a-tag class="tag-label" color="orange" :data-part-key="part.key">
+                              {{ part.key }}
+                            </a-tag>
+                          </a-tooltip>
                         </template>
-                        <a-icon @click="toggleSignOff(record)" class="pointer"
-                          v-if="record.state === 'signed-off' && record.__signoff_hovered || record.state !== 'signed-off' && !record.__signoff_hovered"
-                          type="unlock" theme="twoTone" two-tone-color="#fa8c16">
-                        </a-icon>
-                        <a-icon v-else-if="record.state === 'signed-off'" type="lock" theme="twoTone" class="pointer"
-                          @click="toggleSignOff(record)" two-tone-color="#52c41a"></a-icon>
-                        <a-icon v-else type="lock" theme="twoTone" @click="toggleSignOff(record)"></a-icon>
-                      </a-tooltip>
-                      <a-tooltip v-else title="Not translated" placement="right">
-                        <a-icon class="not-allowed" type="lock" theme="filled"></a-icon>
-                      </a-tooltip>
+                      </div>
+                    </div>
+                    <div class="translation-state">
+                      <tempate v-if="!record._updating">
+                        <div class="state-item">
+                          <a-tooltip v-if="record.state === 'needs-translation' || record.state === 'new'"
+                                     placement="right" title="Need translation">
+                            <a-icon type="exclamation-circle" theme="twoTone" two-tone-color="#f5222d" class="pointer">
+                            </a-icon>
+                          </a-tooltip>
+                          <template v-else>
+                            <a-tooltip v-if="record.state === 'translated'" title="Translated but not signed off."
+                                       placement="right">
+                              <a-icon class="pointer" type="info-circle" theme="twoTone" two-tone-color="#faad14">
+                              </a-icon>
+                            </a-tooltip>
+                            <a-tooltip v-else title="Done!" placement="right">
+                              <a-icon class="pointer" type="check-circle" theme="twoTone" two-tone-color="#52c41a">
+                              </a-icon>
+                            </a-tooltip>
+                          </template>
+                        </div>
+                        <div class="state-item">
+                          <a-tooltip v-if="record.state === 'signed-off' || record.state === 'translated'"
+                                     placement="right" @visible-change="(visible) => { record.__signoff_hovered = visible; }">
+                            <template slot="title">
+                              {{ record.state === 'signed-off' ? 'Click to Re-open' : 'Click to sign off' }}
+                            </template>
+                            <a-icon @click="toggleSignOff(record)" class="pointer"
+                                    v-if="record.state === 'signed-off' && record.__signoff_hovered || record.state !== 'signed-off' && !record.__signoff_hovered"
+                                    type="unlock" theme="twoTone" two-tone-color="#fa8c16">
+                            </a-icon>
+                            <a-icon v-else-if="record.state === 'signed-off'" type="lock" theme="twoTone" class="pointer"
+                                    @click="toggleSignOff(record)" two-tone-color="#52c41a"></a-icon>
+                            <a-icon v-else type="lock" theme="twoTone" @click="toggleSignOff(record)"></a-icon>
+                          </a-tooltip>
+                          <a-tooltip v-else title="Not translated" placement="right">
+                            <a-icon class="not-allowed" type="lock" theme="filled"></a-icon>
+                          </a-tooltip>
+                        </div>
+                      </tempate>
+                      <div v-else class="state-item">
+                        <a-tooltip placement="right" title="Tranunit updating...">
+                          <a-icon type="loading"></a-icon>
+                        </a-tooltip>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </a-table>
-              <a-pagination class="table-pagination" v-model="pagination.pageNum" :total="pagination.totalAmount"
-                :page-size="pagination.pageSize" :page-size-options="[20, 50, 100, 300]" show-size-changer
-                @show-size-change="(current, pageSize) => onPageChange(1, pageSize)"
-                @change="(page, pageSize) => onPageChange(page, null)">
-              </a-pagination>
+                </a-table>
+                <a-pagination class="table-pagination" v-model="pagination.pageNum" :total="pagination.totalAmount"
+                  :page-size="pagination.pageSize" :page-size-options="[20, 50, 100, 300]" show-size-changer
+                  @show-size-change="(current, pageSize) => onPageChange(1, pageSize)"
+                  @change="(page, pageSize) => onPageChange(page, null)">
+                </a-pagination>
+              </template>
             </a-spin>
           </a-col>
         </a-row>
@@ -309,8 +357,71 @@
               show-icon />
           </a-col>
         </a-row>
+        <a-row type="flex" data-page-section="status-bar-section">
+          <a-affix :offset-bottom="0" :style="{ width: '100%', left: 0, right: 0 }">
+            <a-col :span="24">
+              <div class="status-bar" v-show="transUnitTable.loaded">
+                <div class="status-item" v-if="statusBar.counters">
+                  <a-progress :percent="tPercent" size="small">
+                    <template #format="percent">
+                      <a-tooltip placement="topRight">
+                        <template slot="title">
+                          {{ (statusBar.counters.totalUnitCount - statusBar.counters.needHandleCount) | number }} /
+                          {{ statusBar.counters.totalUnitCount | number }},
+                          <b>{{ statusBar.counters.signedOffUnitCount | number }} signed off</b>.
+                        </template>
+                        <span :style="{ cursor: 'pointer' }">{{ percent }}%</span>
+                      </a-tooltip>
+                    </template>
+                  </a-progress>
+                </div>
+                <div class="status-item">
+                  <template v-if="!statusBar.process.finished">
+                    <a-popover placement="topRight">
+                      <template slot="title">
+                        Tasks
+                      </template>
+                      <template slot="content">
+                          <template v-for="(item, hash) in statusBar.process.commandByHash">
+                              <a-alert v-if="item.error" type="error" :message="item.error" closable @close="() => confirmProcessState(hash)"></a-alert>
+                              <a-alert v-else type="info">
+                                  <template slot="message">
+                                      {{ item.command }} <a-icon type="loading"></a-icon>
+                                  </template>
+                              </a-alert>
+                          </template>
+                      </template>
+                      <a-icon type="loading"></a-icon> task(s) executing...
+                    </a-popover>
+                  </template>
+                  <template v-else-if="statusBar.process.hasError">
+                    <a-popover placement="topRight">
+                      <template slot="title">
+                        Errors
+                      </template>
+                      <template slot="content">
+                        <template v-for="(item, hash) in statusBar.process.commandByHash">
+                          <a-alert v-if="item.error" :message="item.error" closable @close="() => confirmProcessState(hash)"></a-alert>
+                        </template>
+                      </template>
+                      <a-icon type="exclamation-circle" theme="twoTone" color="#fa8c16"></a-icon> Done
+                    </a-popover>
+                  </template>
+                  <template v-else>
+                    <a-icon type="check-circle" theme="twoTone"></a-icon> Done
+                  </template>
+                </div>
+              </div>
+            </a-col>
+          </a-affix>
+        </a-row>
+
       </a-layout-content>
+      <!-- <a-layout-footer :style="{ textAlign: 'center' }">
+        Roman-Lo ©2020 Created by Roman Lo
+      </a-layout-footer> -->
     </a-layout>
+    <a-back-top></a-back-top>
   </div>
   <script>
     const transUnitTableColumns = [
@@ -443,7 +554,7 @@
       }
 
       if (tag != null) {
-        // then bind the event to the callback function 
+        // then bind the event to the callback function
         // there are several events for cross browser compatibility
         var cbFunc = function () {
           cb();

@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { promises as fsPromises, existsSync, exists } from 'fs';
-import { FileUtils } from '../modules/common/file.util';
-import { Xliff } from '../modules/xliff/xliff';
-import { StringUtils } from '../modules/common/string.util';
+import {promises as fsPromises, existsSync, exists, readFile, readFileSync, writeFile} from 'fs';
+import {FileUtils} from '../modules/common/file.util';
+import {Xliff} from '../modules/xliff/xliff';
+import {StringUtils} from '../modules/common/string.util';
 
 const decoration = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
@@ -16,8 +16,211 @@ const keyDecoration = vscode.window.createTextEditorDecorationType({
     outline: '4px double green'
 });
 
-export class EditorCommandHanlder {
+interface ICommandQueueItem {
+    transUnit: i18n.TransUnit;
+    hash: string;
+    time: Date;
+    cb: (result: i18nWebView.TransUnitUpdateResult) => void;
+}
 
+class EditorTransUnitUpdateTaskManager {
+    private readonly queueItemByTransUnitKey: { [key: string]: ICommandQueueItem } = {};
+    private readonly transUnitKeyQueue: string[] = [];
+    // private readonly commandQueue: ICommandQueueItem[] = [];
+
+    private __interval_pin__: any | null = null;
+    private __executing__: boolean = false;
+
+    get activeTaskCount(): number {
+        return this.transUnitKeyQueue.length;
+    }
+
+    get isRunning(): boolean {
+        return this.__interval_pin__ !== null;
+    }
+
+    get isExecuting(): boolean {
+        return this.__executing__;
+    }
+
+    constructor(
+        private readonly sourceLocale: string,
+        private readonly targetLocale: string,
+        private readonly targetFile: string,
+        private delayMilliseconds: number = 500,
+        private intervalSeconds: number = 5,
+        private itemEachPack: number = 10,
+    ) {
+        this.restart();
+    }
+
+    private restart() {
+        if (this.__interval_pin__) {
+            clearInterval(this.__interval_pin__);
+            this.__interval_pin__ = null;
+        }
+        let packCount = this.itemEachPack;
+        this.__interval_pin__ = setInterval(() => {
+            if (!this.__executing__) {
+                let endIdx = Math.min(this.transUnitKeyQueue.length, packCount);
+                let pack: string[] = this.transUnitKeyQueue.splice(0, endIdx);
+                this._next(pack);
+            } else {
+                packCount += this.itemEachPack;
+            }
+        }, this.intervalSeconds * 1000);
+    }
+
+    pushCommand(cmd: i18nWebView.TransUnitUpdateCommand, eventSender: (result: i18nWebView.TransUnitUpdateResult) => void) {
+        cmd.transUnits.forEach(transUnit => {
+            if (this.queueItemByTransUnitKey[transUnit.key]) {
+                const item = this.queueItemByTransUnitKey[transUnit.key];
+                const idx = this.transUnitKeyQueue.indexOf(transUnit.key);
+                if (idx >= 0 && item.time <= cmd.time) {
+                    // omit previous item
+                    item.transUnit = transUnit;
+                    item.hash = cmd.hash;
+                    item.time = cmd.time;
+                    item.cb = eventSender;
+                    // remove key from current queue
+                    this.transUnitKeyQueue.splice(idx, 1);
+                }
+            } else {
+                this.queueItemByTransUnitKey[transUnit.key] = {
+                    transUnit: transUnit,
+                    hash: cmd.hash,
+                    time: cmd.time,
+                    cb: eventSender,
+                };
+            }
+            // enqueue
+            this.transUnitKeyQueue.push(transUnit.key);
+        });
+    }
+
+    flush() {
+        const allItems = this.transUnitKeyQueue.slice(0, this.transUnitKeyQueue.length);
+        this._next(allItems);
+    }
+
+    private _next(pack: string[]) {
+        this.__executing__ = true;
+        // const cmdCollection = pack.map(key => {
+        //     const tar = this.queueItemByTransUnitKey[key];
+        //     return tar;
+        // }).filter(x => !!x);
+        // cmdCollection.forEach(item => {
+        //     transUnits.push(item.transUnit);
+        // });
+        const reducer: Map<string, i18n.TransUnit[]> = new Map<string, i18n.TransUnit[]>();
+        const transUnits: i18n.TransUnit[] = [];
+
+        const distinctCmdCollection = pack.reduce<ICommandQueueItem[]>((arr, val) => {
+            const cmd = this.queueItemByTransUnitKey[val];
+            const rItem = reducer.get(cmd.hash);
+            if (rItem) {
+                rItem.push(cmd.transUnit);
+            } else {
+                reducer.set(cmd.hash, [cmd.transUnit]);
+                arr.push(cmd);
+            }
+            return arr;
+        }, []);
+        // dequeue
+        pack.forEach(p => {
+            try {
+                delete this.queueItemByTransUnitKey[p];
+            } catch (e) {
+
+            }
+        });
+        // read from file
+        new Promise((resolve, reject) => {
+            if (existsSync(this.targetFile)) {
+                readFile(this.targetFile, {encoding: 'utf8'}, (err, content) => {
+                    const {
+                        transUnitByMsgId, errors
+                    } = Xliff.loadTransUnits(content, '');
+
+                    transUnits.forEach(t => {
+                        const tar = transUnitByMsgId[t.key];
+                        if (!tar) {
+                            transUnitByMsgId[t.key] = t;
+                        } else {
+                            tar.target = t.target;
+                            tar.state = t.state;
+                        }
+                    });
+
+                    const updatedTransUnits = Object.values(transUnitByMsgId);
+                    this._writeTransUnits(updatedTransUnits).then(() => {
+                        resolve(true);
+                    }).catch((err) => {
+                        reject(err);
+                    });
+                });
+            } else {
+                this._writeTransUnits(transUnits).then(() => {
+                    resolve(true);
+                }).catch((err) => {
+                    reject(err);
+                });
+            }
+        }).then((val) => {
+            distinctCmdCollection.forEach(cmd => {
+                let transUnits = reducer.get(cmd.hash)!;
+                let now = new Date();
+                let result: i18nWebView.TransUnitUpdateResult = {
+                    time: now,
+                    hash: now.getTime().toString(),
+                    commandName: 'update-trans-unit',
+                    commandHash: cmd.hash,
+                    xliffFile: '',
+                    success: true,
+                    transUnits: transUnits,
+                    errors: null,
+                };
+                cmd.cb(result);
+            });
+        }).catch((err) => {
+            const error = { code: 0, message: `failed to save trans unit to '${this.targetFile}', ${err}`};
+            distinctCmdCollection.forEach(cmd => {
+                let transUnits = reducer.get(cmd.hash)!;
+                let now = new Date();
+                let result: i18nWebView.TransUnitUpdateResult = {
+                    time: now,
+                    hash: now.getTime().toString(),
+                    commandName: 'update-trans-unit',
+                    commandHash: cmd.hash,
+                    xliffFile: '',
+                    success: false,
+                    transUnits: transUnits,
+                    errors: null,
+                };
+                cmd.cb(result);
+            });
+        }).finally(() => {
+            this.__executing__ = false;
+        });
+    }
+
+    private _writeTransUnits(transUnits: i18n.TransUnit[]): Promise<boolean> {
+        const content = Xliff.writeTransUnits(transUnits, this.sourceLocale, this.targetLocale, false);
+        return new Promise<any>((resolve, reject) => {
+            writeFile(this.targetFile, content, {encoding: 'utf8'}, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    }
+}
+
+export const G_TransUnitUpdateManagerDict: { [filename: string]: EditorTransUnitUpdateTaskManager } = {};
+
+export class EditorCommandHandler {
 
     private activeCodeRevealEditor!: vscode.TextEditor;
 
@@ -45,7 +248,7 @@ export class EditorCommandHanlder {
             .map((val, idx) => idx === 0 ? val : `${val[0].toUpperCase()}${val.substring(1)}`)
             .join('');
         const handler = (this as any)[handlerName] as Function;
-        const callbackCmd = (EditorCommandHanlder.commandResultMap as any)[command];
+        const callbackCmd = (EditorCommandHandler.commandResultMap as any)[command];
         if (typeof handler === 'function') {
             handler.apply(this, [message]);
         } else {
@@ -86,13 +289,13 @@ export class EditorCommandHanlder {
         let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
         Promise.all(
             [
-                fsPromises.readFile(file, { encoding: 'utf8' }),
-                existsSync(targetXliff) ? fsPromises.readFile(targetXliff, { encoding: 'utf8' }) : Promise.resolve('NOT-EXISTS')
+                fsPromises.readFile(file, {encoding: 'utf8'}),
+                existsSync(targetXliff) ? fsPromises.readFile(targetXliff, {encoding: 'utf8'}) : Promise.resolve('NOT-EXISTS')
             ]
         ).then((fileReadResults) => {
             let sourceContent = fileReadResults[0];
             let targetContent = fileReadResults[1];
-            const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(sourceContent, '');
+            const {transUnitByMsgId, errors, sourceLocale} = Xliff.loadTransUnits(sourceContent, '');
             if (errors && errors.length > 0 || !sourceLocale) {
                 const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
                 result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
@@ -144,11 +347,33 @@ export class EditorCommandHanlder {
     }
 
     loadTransUnitCodeCtx(command: i18nWebView.LoadTransUnitCodeContextCommand) {
-
+        // TODO: seems like not needed anymore
     }
 
     updateTransUnit(command: i18nWebView.TransUnitUpdateCommand) {
-
+        const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, command.targetLocale);
+        let manager = G_TransUnitUpdateManagerDict[targetXliff];
+        if (!manager) {
+            let error: string | null = null;
+            if (existsSync(targetXliff)) {
+                const targetXliffContent = readFileSync(targetXliff, {encoding: 'utf8'});
+                const {sourceLocale, targetLocale} = Xliff.loadFileLocaleInfo(targetXliffContent, '');
+                if (command.sourceLocale !== sourceLocale) {
+                    error = `Unable to save trans units into '${targetXliff}': source locale is not match, actual: ${sourceLocale}, expected: ${command.sourceLocale}`;
+                } else if (command.targetLocale !== targetLocale) {
+                    error = `Unable to save trans units into '${targetXliff}': target locale is not match, actual: ${targetLocale}, expected: ${command.targetLocale}`;
+                }
+                if (error) {
+                    const result = this.buildErrorCallbackResult('trans-unit-updated', command, error) as any;
+                    this.sendMessage('code-ctx-revealed', result);
+                    return;
+                }
+            }
+            G_TransUnitUpdateManagerDict[targetXliff] = manager = new EditorTransUnitUpdateTaskManager(command.sourceLocale, command.targetLocale, targetXliff);
+        }
+        manager.pushCommand(command, (result: i18nWebView.TransUnitUpdateResult) => {
+            this.sendMessage('trans-unit-updated', result);
+        });
     }
 
     revealCodeCtx(command: i18nWebView.CodeContextRevealCommand) {
@@ -175,13 +400,13 @@ export class EditorCommandHanlder {
                             }
                         }
                         vscode.commands
-                            .executeCommand('revealLine', { lineNumber: line.lineNumber, at: 'center' })
+                            .executeCommand('revealLine', {lineNumber: line.lineNumber, at: 'center'})
                             .then(() => {
-                                editor.setDecorations(decoration, [{ range: line.range }]);
+                                editor.setDecorations(decoration, [{range: line.range}]);
                                 if (keywordRange && !editor.selection.isEqual(keywordRange)) {
                                     editor.selections = [new vscode.Selection(keywordRange.start, keywordRange.end)];
                                     editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
-                                    editor.setDecorations(keyDecoration, [{ range: keywordRange }]);
+                                    editor.setDecorations(keyDecoration, [{range: keywordRange}]);
                                 }
                             });
                     });

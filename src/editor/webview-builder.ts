@@ -2,13 +2,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { EditorCommandHanlder } from './command-handler';
+import { EditorCommandHandler } from './command-handler';
 
 
 
 export class EditorWebViewBuilder {
     private currentPanel: vscode.WebviewPanel | undefined = undefined;
-    private commandHandler: EditorCommandHanlder | undefined = undefined;
+    private commandHandler: EditorCommandHandler | undefined = undefined;
 
     public readonly panelName = 'ngI18nEditor';
     public readonly panelTitle = 'Angular I18n Xliff Editor';
@@ -43,7 +43,7 @@ export class EditorWebViewBuilder {
             panel.webview.html = parsedHtml;
 
 
-            this.commandHandler = new EditorCommandHanlder(panel.webview, setting);
+            this.commandHandler = new EditorCommandHandler(panel.webview, setting);
             panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
                 try {
                     this.commandHandler?.handle(message.command, message.data);

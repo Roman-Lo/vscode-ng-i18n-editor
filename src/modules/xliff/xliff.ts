@@ -4,6 +4,7 @@ import * as i18nAst from "../ngc/i18n/ast";
 import * as xml from "../ngc/i18n/serializers/xml_helper";
 import { XmlParser } from "../ngc/ml_parser/xml_parser";
 import { StringUtils } from "../common/string.util";
+import { I18nHtml } from "./i18n-html";
 
 const _VERSION = '1.2';
 const _XMLNS = 'urn:oasis:names:tc:xliff:document:1.2';
@@ -17,6 +18,9 @@ const _TARGET_TAG = 'target';
 const _UNIT_TAG = 'trans-unit';
 const _CONTEXT_GROUP_TAG = 'context-group';
 const _CONTEXT_TAG = 'context';
+const _NOTE_TAG = 'note';
+
+const _TARGET_STATE_ATTR = 'state';
 
 
 enum ContextTypeEnum {
@@ -24,26 +28,6 @@ enum ContextTypeEnum {
   LINE_NUMBER = 'linenumber'
 }
 
-export interface IXliffContextGroup {
-  sourcefile: string;
-  linenumber: number;
-}
-
-export interface IXliffTransUnitContent {
-  id: string;
-  srcHtml: string;
-  tarHtml: string;
-  description: string;
-  meaning: string;
-  ctxGroups: IXliffContextGroup[];
-}
-
-export interface IXliffTransUnitLoadResult {
-  sourceLocale: string,
-  targetLocale: string,
-  transUnitByMsgId: { [msgId: string]: IXliffTransUnitContent },
-  errors?: I18nError[],
-}
 
 export class Xliff {
 
@@ -56,7 +40,7 @@ export class Xliff {
    * @param simplifyMode when `true`: will not write context groups, description and meanding into the xliff content.
    */
   static writeTransUnits(
-    items: IXliffTransUnitContent[],
+    items: i18n.TransUnit[],
     sourceLocale: string,
     targetLocale: string,
     simplifyMode: boolean = false
@@ -64,35 +48,39 @@ export class Xliff {
     const transUnits: xml.Node[] = [];
 
     items.forEach(item => {
-      const transUnit = new xml.Tag(_UNIT_TAG, { id: item.id, datatype: 'html' });
+      const transUnit = new xml.Tag(_UNIT_TAG, { id: item.key, datatype: 'html' });
 
       const sourceTextNode = new xml.Text('');
-      sourceTextNode.value = item.srcHtml;
+      sourceTextNode.value = item.source;
 
       transUnit.children.push(
         new xml.CR(8), new xml.Tag(_SOURCE_TAG, {}, [sourceTextNode]),
       );
 
-      if (item.tarHtml) {
+      if (item.target) {
         const targetTextNode = new xml.Text('');
-        targetTextNode.value = item.tarHtml;
+        const targetNodeAttrs: any = {};
+        if (item.state) {
+          targetNodeAttrs[_TARGET_STATE_ATTR] = item.state;
+        }
+        targetTextNode.value = item.target;
         transUnit.children.push(
-          new xml.CR(8), new xml.Tag(_TARGET_TAG, {}, [targetTextNode]),
-        )
+          new xml.CR(8), new xml.Tag(_TARGET_TAG, targetNodeAttrs, [targetTextNode]),
+        );
       }
 
       if (!simplifyMode) {
         let contextTags: xml.Node[] = [];
-        item.ctxGroups.forEach((ctxGroup) => {
+        item.contextGroups.forEach((ctxGroup) => {
           let contextGroupTag = new xml.Tag(_CONTEXT_GROUP_TAG, { purpose: 'location' });
           contextGroupTag.children.push(
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'sourcefile' }, [new xml.Text(ctxGroup.sourcefile)]
+              _CONTEXT_TAG, { 'context-type': 'sourcefile' }, [new xml.Text(ctxGroup.sourceFile)]
             ),
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'linenumber' }, [new xml.Text(`${ctxGroup.linenumber}`)]
+              _CONTEXT_TAG, { 'context-type': 'linenumber' }, [new xml.Text(`${ctxGroup.lineNumber}`)]
             ),
             new xml.CR(8),
           );
@@ -105,13 +93,13 @@ export class Xliff {
           transUnit.children.push(
             new xml.CR(8),
             new xml.Tag(
-              'note', { priority: '1', from: 'description' }, [new xml.Text(item.description)]));
+              _NOTE_TAG, { priority: '1', from: 'description' }, [new xml.Text(item.description)]));
         }
 
         if (item.meaning) {
           transUnit.children.push(
             new xml.CR(8),
-            new xml.Tag('note', { priority: '1', from: 'meaning' }, [new xml.Text(item.meaning)]));
+            new xml.Tag(_NOTE_TAG, { priority: '1', from: 'meaning' }, [new xml.Text(item.meaning)]));
         }
       }
 
@@ -155,6 +143,14 @@ export class Xliff {
     return { sourceLocale, targetLocale, transUnitByMsgId, errors: errors.length > 0 ? errors : null };
   }
 
+  static loadFileLocaleInfo(content: string, url: string) {
+    const xliffParser = new XliffParser();
+    const info = xliffParser.getLocaleInfo(content, url);
+    return {
+      sourceLocale: info.sourceLocale,
+      targetLocale: info.targetLocale,
+    }
+  }
 }
 
 
@@ -162,9 +158,10 @@ class XliffParser implements mlAst.Visitor {
   private _unitMlId !: string | null;
   private _unitMlSourceString !: string | null;
   private _unitMlTargetString !: string | null;
+  private _unitMlTargetState !: i18n.TranslationStateType | null;
   private _unitMlDescription !: string | null;
   private _unitMlMeaning !: string | null;
-  private _unitMlContextGroups !: IXliffContextGroup[];
+  private _unitMlContextGroups !: i18n.TransUnitContext[];
 
   private _unitMlCtxGroupSrcFile !: string | null;
   private _unitMlCtxGroupLineNumber !: number | null;
@@ -172,12 +169,15 @@ class XliffParser implements mlAst.Visitor {
   // TODO(issue/24571): remove '!'.
   private _errors !: I18nError[];
   // TODO(issue/24571): remove '!'.
-  private _transUnitByMsgId !: { [msgId: string]: IXliffTransUnitContent };
+  private _transUnitByMsgId !: { [msgId: string]: i18n.TransUnit };
 
   private _locale: string | null = null;
   private _srcLocale: string | null = null;
 
+  private _localeOnly: boolean = false;
+
   parse(xliff: string, url: string) {
+    this._localeOnly = false;
     this._unitMlSourceString = null;
     this._unitMlTargetString = null;
     this._transUnitByMsgId = {};
@@ -195,7 +195,15 @@ class XliffParser implements mlAst.Visitor {
     };
   }
 
-
+  getLocaleInfo(xliff: string, url: string) {
+    this._localeOnly = true;
+    const xml = new XmlParser().parse(xliff, url);
+    mlAst.visitAll(this, xml.rootNodes, null);
+    return {
+      targetLocale: this._locale,
+      sourceLocale: this._srcLocale,
+    };
+  }
 
   visitElement(element: mlAst.Element, context: any): any {
     switch (element.name) {
@@ -205,6 +213,7 @@ class XliffParser implements mlAst.Visitor {
         this._unitMlTargetString = null!;
         this._unitMlDescription = null!;
         this._unitMlMeaning = null!;
+        this._unitMlTargetState = null!;
         this._unitMlContextGroups = [];
         const idAttr = element.attrs.find((attr) => attr.name === 'id');
         if (!idAttr) {
@@ -215,14 +224,28 @@ class XliffParser implements mlAst.Visitor {
             this._addError(element, `Duplicated translations for msg ${this._unitMlId}`);
           } else {
             mlAst.visitAll(this, element.children, null);
-            this._transUnitByMsgId[this._unitMlId] = {
-              id: this._unitMlId,
-              srcHtml: StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString),
-              tarHtml: StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString),
+            const source = StringUtils.trimAndRemoveLineWrapper(this._unitMlSourceString);
+            const sourceParts = I18nHtml.parseIntoParts(source);
+            const sourceIdfr = I18nHtml.buildIdentifier(sourceParts);
+            const transUnit: i18n.TransUnit = {
+              key: this._unitMlId,
+              source: source,
+              source_identifier: sourceIdfr,
+              source_parts: sourceParts,
               description: this._unitMlDescription,
               meaning: this._unitMlMeaning,
-              ctxGroups: this._unitMlContextGroups
+              contextGroups: this._unitMlContextGroups
             };
+            if (this._unitMlTargetString) {
+              const target = StringUtils.trimAndRemoveLineWrapper(this._unitMlTargetString);
+              const targetParts = I18nHtml.parseIntoParts(target);
+              const targetIdfr = I18nHtml.buildIdentifier(targetParts);
+              transUnit.target = target;
+              transUnit.target_parts = targetParts;
+              transUnit.target_identifier = targetIdfr;
+              transUnit.state = this._unitMlTargetState || undefined;
+            }
+            this._transUnitByMsgId[this._unitMlId] = transUnit;
             // else {
             //   this._addError(element, `Message ${id} misses a translation`);
             // }
@@ -238,6 +261,7 @@ class XliffParser implements mlAst.Visitor {
       case _SOURCE_TAG:
       case _TARGET_TAG:
       case _CONTEXT_TAG:
+      case _NOTE_TAG:
         const innerTextStart = element.startSourceSpan!.end.offset;
         const innerTextEnd = element.endSourceSpan!.start.offset;
         const content = element.startSourceSpan!.start.file.content;
@@ -245,8 +269,15 @@ class XliffParser implements mlAst.Visitor {
         if (element.name === _SOURCE_TAG) {
           this._unitMlSourceString = innerText;
         } else if (element.name === _TARGET_TAG) {
+          this._unitMlTargetState = 'needs-translation';
+          const stateAttr = element.attrs.find(x => x.name === _TARGET_STATE_ATTR);
+          if (stateAttr) {
+            this._unitMlTargetState = stateAttr.value as any;
+          } else if (innerText.length > 0) {
+            this._unitMlTargetState = 'translated';
+          }
           this._unitMlTargetString = innerText;
-        } else {
+        } else if (element.name === _CONTEXT_TAG) {
           // context tag
           const ctxTypeAttr = element.attrs.find((attr) => attr.name === 'context-type');
           if (ctxTypeAttr) {
@@ -261,6 +292,16 @@ class XliffParser implements mlAst.Visitor {
                 break;
             }
           }
+        } else {
+          // note tag
+          const noteFromAttr = element.attrs.find(x => x.name === 'from');
+          if (noteFromAttr) {
+            if (noteFromAttr.value === 'description') {
+              this._unitMlDescription = innerText;
+            } else if (noteFromAttr.value === 'meaning') {
+              this._unitMlMeaning = innerText;
+            }
+          }
         }
         break;
 
@@ -270,8 +311,8 @@ class XliffParser implements mlAst.Visitor {
         mlAst.visitAll(this, element.children, null);
         if (typeof this._unitMlCtxGroupSrcFile === 'string' && this._unitMlCtxGroupLineNumber !== null) {
           this._unitMlContextGroups.push({
-            sourcefile: this._unitMlCtxGroupSrcFile,
-            linenumber: this._unitMlCtxGroupLineNumber
+            sourceFile: this._unitMlCtxGroupSrcFile,
+            lineNumber: this._unitMlCtxGroupLineNumber
           });
         } else {
           this._addError(element, `Message ${this._unitMlId} misses a translation`);
@@ -287,6 +328,9 @@ class XliffParser implements mlAst.Visitor {
         }
         if (srcLocaleAttr) {
           this._srcLocale = srcLocaleAttr.value;
+        }
+        if (this._localeOnly) {
+          return;
         }
         mlAst.visitAll(this, element.children, null);
         break;

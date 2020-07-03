@@ -35,7 +35,12 @@ declare namespace i18nWebView // i18n-webview
   interface TransUnitUpdateResult extends ExtResultCallbackEvent {
     readonly xliffFile: string;
     readonly transUnits: i18n.TransUnit[];
-    readonly errors: { [key: string]: string } | null;
+    readonly errors: { [key: string]: string };
+  }
+
+  interface TransUnitOmittedResult extends ExtResultCallbackEvent {
+    readonly xliffFile: string;
+    readonly transUnitKey: string;
   }
 
   interface XliffFileUpdatedEvent extends ExtEventBase {
@@ -95,6 +100,7 @@ declare namespace i18nWebView // i18n-webview
 
     "update-trans-unit": TransUnitUpdateCommand;
     "trans-unit-updated": TransUnitUpdateResult;
+    'trans-unit-omitted': TransUnitOmittedResult;
 
     "xliff-file-updated": XliffFileUpdatedEvent;
 
@@ -113,6 +119,7 @@ declare namespace i18nWebView // i18n-webview
     _updating: boolean;
     _commandHash: string | null;
     _error?: string | null;
+    _locked?: boolean;
     __signoff_hovered?: boolean;
     __key_for_search__: string;
     __key_for_search_target__: string;
@@ -145,6 +152,7 @@ declare namespace i18nWebView // i18n-webview
   }
 
   interface IWebViewTransUnitTableData {
+    sourceXliffFile: string;
     sourceLocale: string;
     targetLocale: string;
     editingUnit: IWebViewEditingUnitState | null,
@@ -169,7 +177,8 @@ declare namespace i18nWebView // i18n-webview
     process: {
       commandByHash: {
         [hash: string]: {
-          command: string;
+          message: string;
+          cmd: any;
           error: string | null;
         }
       };

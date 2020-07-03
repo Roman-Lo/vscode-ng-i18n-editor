@@ -71,6 +71,19 @@
       cursor: not-allowed;
     }
 
+    .transunit-index {
+      display: inline-block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      padding: 0 3px;
+      font-size: 12px;
+      line-height: 14px;
+      background: #ccc;
+      color: #666;
+      opacity: 0.4;
+    }
+
     .transunit-meta {
       position: absolute;
       width: 100%;
@@ -144,6 +157,21 @@
       padding: 0 10px;
     }
 
+    .status-item.progress {
+      display: flex;
+      align-items: center;
+    }
+
+    .progress>.counter {
+      padding: 0 5px;
+      display: inline-block;
+      text-align: center;
+      font-size: 12px;
+      height: 100%;
+      background: #ccc;
+      white-space: nowrap;
+    }
+
     #app .ant-back-top {
       right: 20px;
       bottom: 45px;
@@ -155,21 +183,35 @@
   <div id="app" pending>
     <a-layout>
       <a-layout-content :style="{ margin: '10px', padding: '12px', background: '#fff', minHeight: '280px' }">
-        <a-row type="flex" data-page-section="filter-section">
-          <a-col :span="24">
-            <label>Xliff Location:</label>
-            <a-select style="min-width: 250px" placeholder="Select a file" @change="onSelectedFileChange">
+        <a-row type="flex" data-page-section="filter-section" :gutter="8">
+          <a-col :span="6">
+            <!-- <div><label>Xliff Location:</label></div> -->
+            <a-select style="width: 100%" placeholder="Select a file" @change="onSelectedFileChange">
               <a-select-option v-for="item in xliffFiles" :key="item.path">
                 {{ item.name }}
               </a-select-option>
             </a-select>
-            <label>Target Locale:</label>
-            <a-select style="width: 120px;" placeholder="Select a target locale" @change="onSelectedTargetLocale">
+          </a-col>
+          <a-col :span="4">
+            <a-select style="width: 100%" placeholder="Select a target locale" @change="onSelectedTargetLocale">
               <a-select-option v-for="item in locales" :key="item">
-                {{ item }}
+                <b>{{ item }}</b>
               </a-select-option>
             </a-select>
-            <a-button v-if="transUnitTable.loaded" @click="loadXliffContent">Reload</a-button>
+          </a-col>
+          <a-col :span="14">
+            <a-button type="danger" v-if="selectedXliffFile && selectedTargetLocale" @click="loadXliffContent"
+              :loading="xliffFileLoading">Reload</a-button>
+            <div v-if="transUnitTable.loaded" :style="{ float: 'right' }">
+              Page #{{ pagination.pageNum }} - 
+              <a-select style="width: 120px;" placeholder="Select a target locale" :value="pagination.pageSize"
+                @change="onPageChange(1, $event)">
+                <a-select-option v-for="item in [20, 50, 100, 300]" :key="item">
+                  <b>{{ item | number }}</b> / page
+                </a-select-option>
+              </a-select>
+            </div>
+            <!-- <a-button type="primary" v-if="hasTranslated">Sign Off All Translated</a-button> -->
           </a-col>
         </a-row>
         <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
@@ -190,7 +232,9 @@
                   :loading="transUnitTable.filtering" bordered>
                   <!-- title slots -->
                   <span class="source-title-column" slot="sourceTitle">
-                    <span>Source ({{ transUnitTable.sourceLocale }})</span>
+                    <span>
+                      Source <span :style="{ 'white-space': 'nowrap' }">({{ transUnitTable.sourceLocale }})</span>
+                    </span>
                     <span :style="{ flex: 'auto', 'margin-left': '10px' }">
                       <a-input :value="filterOptions.sourceKeyword" allow-clear @change="onSourceKeywordChange"
                         placeholder="Enter keyword to search">
@@ -199,7 +243,9 @@
                     </span>
                   </span>
                   <span class="source-title-column" slot="targetTitle">
-                    <span>Translation ({{ transUnitTable.targetLocale }})</span>
+                    <span>
+                      Translation <span :style="{ 'white-space': 'nowrap' }">({{ transUnitTable.targetLocale }})</span>
+                    </span>
                     <span :style="{ flex: 'auto', 'margin-left': '10px' }">
                       <a-input :value="filterOptions.targetKeyword" allow-clear @change="onTargetKeywordChange"
                         placeholder="Enter keyword to search">
@@ -218,7 +264,8 @@
                     </span>
                   </span>
                   <!-- row data slots -->
-                  <template slot="sourceColumn" slot-scope="record">
+                  <template slot="sourceColumn" slot-scope="record, p, index">
+                    <div class="transunit-index">{{ (pageOffset + index + 1) | number }}</div>
                     <div class="transunit-html">
                       <template v-for="part in record.source_parts">
                         <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
@@ -298,13 +345,13 @@
                       <tempate v-if="!record._updating">
                         <div class="state-item">
                           <a-tooltip v-if="record.state === 'needs-translation' || record.state === 'new'"
-                                     placement="right" title="Need translation">
+                            placement="right" title="Need translation">
                             <a-icon type="exclamation-circle" theme="twoTone" two-tone-color="#f5222d" class="pointer">
                             </a-icon>
                           </a-tooltip>
                           <template v-else>
                             <a-tooltip v-if="record.state === 'translated'" title="Translated but not signed off."
-                                       placement="right">
+                              placement="right">
                               <a-icon class="pointer" type="info-circle" theme="twoTone" two-tone-color="#faad14">
                               </a-icon>
                             </a-tooltip>
@@ -316,16 +363,16 @@
                         </div>
                         <div class="state-item">
                           <a-tooltip v-if="record.state === 'signed-off' || record.state === 'translated'"
-                                     placement="right" @visible-change="(visible) => { record.__signoff_hovered = visible; }">
+                            placement="right" @visible-change="(visible) => { record.__signoff_hovered = visible; }">
                             <template slot="title">
                               {{ record.state === 'signed-off' ? 'Click to Re-open' : 'Click to sign off' }}
                             </template>
                             <a-icon @click="toggleSignOff(record)" class="pointer"
-                                    v-if="record.state === 'signed-off' && record.__signoff_hovered || record.state !== 'signed-off' && !record.__signoff_hovered"
-                                    type="unlock" theme="twoTone" two-tone-color="#fa8c16">
+                              v-if="record.state === 'signed-off' && record.__signoff_hovered || record.state !== 'signed-off' && !record.__signoff_hovered"
+                              type="unlock" theme="twoTone" two-tone-color="#fa8c16">
                             </a-icon>
-                            <a-icon v-else-if="record.state === 'signed-off'" type="lock" theme="twoTone" class="pointer"
-                                    @click="toggleSignOff(record)" two-tone-color="#52c41a"></a-icon>
+                            <a-icon v-else-if="record.state === 'signed-off'" type="lock" theme="twoTone"
+                              class="pointer" @click="toggleSignOff(record)" two-tone-color="#52c41a"></a-icon>
                             <a-icon v-else type="lock" theme="twoTone" @click="toggleSignOff(record)"></a-icon>
                           </a-tooltip>
                           <a-tooltip v-else title="Not translated" placement="right">
@@ -361,20 +408,16 @@
           <a-affix :offset-bottom="0" :style="{ width: '100%', left: 0, right: 0 }">
             <a-col :span="24">
               <div class="status-bar" v-show="transUnitTable.loaded">
-                <div class="status-item" v-if="statusBar.counters">
-                  <a-progress :percent="tPercent" size="small">
-                    <template #format="percent">
-                      <a-tooltip placement="topRight">
-                        <template slot="title">
-                          {{ (statusBar.counters.totalUnitCount - statusBar.counters.needHandleCount) | number }} /
-                          {{ statusBar.counters.totalUnitCount | number }},
-                          <b>{{ statusBar.counters.signedOffUnitCount | number }} signed off</b>.
-                        </template>
-                        <span :style="{ cursor: 'pointer' }">{{ percent }}%</span>
-                      </a-tooltip>
-                    </template>
-                  </a-progress>
-                </div>
+                <template v-if="statusBar.counters">
+                  <div class="status-item progress">
+                    <a-progress :percent="tPercent" size="small"></a-progress>
+                    <span class="counter">
+                      {{ (statusBar.counters.totalUnitCount - statusBar.counters.needHandleCount) | number }} /
+                      {{ statusBar.counters.totalUnitCount | number }},
+                      <b>{{ statusBar.counters.signedOffUnitCount | number }} signed off</b>.
+                    </span>
+                  </div>
+                </template>
                 <div class="status-item">
                   <template v-if="!statusBar.process.finished">
                     <a-popover placement="topRight">
@@ -382,14 +425,15 @@
                         Tasks
                       </template>
                       <template slot="content">
-                          <template v-for="(item, hash) in statusBar.process.commandByHash">
-                              <a-alert v-if="item.error" type="error" :message="item.error" closable @close="() => confirmProcessState(hash)"></a-alert>
-                              <a-alert v-else type="info">
-                                  <template slot="message">
-                                      {{ item.command }} <a-icon type="loading"></a-icon>
-                                  </template>
-                              </a-alert>
-                          </template>
+                        <template v-for="(item, hash) in statusBar.process.commandByHash">
+                          <a-alert v-if="item.error" type="error" :message="item.error" closable
+                            @close="() => confirmProcessState(hash)"></a-alert>
+                          <a-alert v-else type="info">
+                            <template slot="message">
+                              {{ item.message }} <a-icon type="loading"></a-icon>
+                            </template>
+                          </a-alert>
+                        </template>
                       </template>
                       <a-icon type="loading"></a-icon> task(s) executing...
                     </a-popover>
@@ -401,7 +445,8 @@
                       </template>
                       <template slot="content">
                         <template v-for="(item, hash) in statusBar.process.commandByHash">
-                          <a-alert v-if="item.error" :message="item.error" closable @close="() => confirmProcessState(hash)"></a-alert>
+                          <a-alert v-if="item.error" :message="item.error" closable
+                            @close="() => confirmProcessState(hash)"></a-alert>
                         </template>
                       </template>
                       <a-icon type="exclamation-circle" theme="twoTone" color="#fa8c16"></a-icon> Done

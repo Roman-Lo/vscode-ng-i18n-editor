@@ -43,6 +43,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
     state: ['new', 'needs-translation', 'signed-off', 'translated'],
   },
   transUnitTable: {
+    sourceXliffFile: '',
     sourceLocale: 'zh-CN',
     targetLocale: 'en-US',
     columns: [],

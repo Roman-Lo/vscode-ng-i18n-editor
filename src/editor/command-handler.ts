@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {promises as fsPromises, existsSync, exists, readFile, readFileSync, writeFile} from 'fs';
-import {FileUtils} from '../modules/common/file.util';
-import {Xliff} from '../modules/xliff/xliff';
-import {StringUtils} from '../modules/common/string.util';
+import { promises as fsPromises, existsSync, exists, readFile, readFileSync, writeFile } from 'fs';
+import { FileUtils } from '../modules/common/file.util';
+import { Xliff } from '../modules/xliff/xliff';
+import { StringUtils } from '../modules/common/string.util';
 
-const decoration = vscode.window.createTextEditorDecorationType({
+const lineDecoration = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
     borderWidth: `0 0 1px 0`,
     borderStyle: `dashed`, //TODO: file bug, this shouldn't throw a lint error.
@@ -21,6 +21,7 @@ interface ICommandQueueItem {
     hash: string;
     time: Date;
     cb: (result: i18nWebView.TransUnitUpdateResult) => void;
+    omcb: (result: i18nWebView.TransUnitOmittedResult) => void;
 }
 
 class EditorTransUnitUpdateTaskManager {
@@ -62,6 +63,9 @@ class EditorTransUnitUpdateTaskManager {
         let packCount = this.itemEachPack;
         this.__interval_pin__ = setInterval(() => {
             if (!this.__executing__) {
+                if (this.activeTaskCount === 0) {
+                    return;
+                }
                 let endIdx = Math.min(this.transUnitKeyQueue.length, packCount);
                 let pack: string[] = this.transUnitKeyQueue.splice(0, endIdx);
                 this._next(pack);
@@ -71,17 +75,40 @@ class EditorTransUnitUpdateTaskManager {
         }, this.intervalSeconds * 1000);
     }
 
-    pushCommand(cmd: i18nWebView.TransUnitUpdateCommand, eventSender: (result: i18nWebView.TransUnitUpdateResult) => void) {
+    pushCommand(
+        cmd: i18nWebView.TransUnitUpdateCommand,
+        eventSender: (result: i18nWebView.TransUnitUpdateResult) => void,
+        omitEventSender: (result: i18nWebView.TransUnitOmittedResult) => void
+    ) {
         cmd.transUnits.forEach(transUnit => {
             if (this.queueItemByTransUnitKey[transUnit.key]) {
                 const item = this.queueItemByTransUnitKey[transUnit.key];
                 const idx = this.transUnitKeyQueue.indexOf(transUnit.key);
                 if (idx >= 0 && item.time <= cmd.time) {
+                    try {
+                        const now = new Date();
+                        const {
+                            omcb: pOMCB, hash: pHash, transUnit: pTransUnit,
+                        } = item;
+                        // sent post back event to remove webview task
+                        pOMCB({
+                            time: now,
+                            hash: now.getTime().toString(),
+                            commandHash: pHash,
+                            commandName: 'update-trans-unit-ommited',
+                            transUnitKey: pTransUnit.key,
+                            success: true,
+                            xliffFile: cmd.xliffFile
+                        });
+                    } catch (e) {
+                        console.error(`failed to send omit post back event`, e);
+                    }
                     // omit previous item
                     item.transUnit = transUnit;
                     item.hash = cmd.hash;
                     item.time = cmd.time;
                     item.cb = eventSender;
+                    item.omcb = omitEventSender;
                     // remove key from current queue
                     this.transUnitKeyQueue.splice(idx, 1);
                 }
@@ -91,6 +118,7 @@ class EditorTransUnitUpdateTaskManager {
                     hash: cmd.hash,
                     time: cmd.time,
                     cb: eventSender,
+                    omcb: omitEventSender,
                 };
             }
             // enqueue
@@ -105,16 +133,8 @@ class EditorTransUnitUpdateTaskManager {
 
     private _next(pack: string[]) {
         this.__executing__ = true;
-        // const cmdCollection = pack.map(key => {
-        //     const tar = this.queueItemByTransUnitKey[key];
-        //     return tar;
-        // }).filter(x => !!x);
-        // cmdCollection.forEach(item => {
-        //     transUnits.push(item.transUnit);
-        // });
         const reducer: Map<string, i18n.TransUnit[]> = new Map<string, i18n.TransUnit[]>();
         const transUnits: i18n.TransUnit[] = [];
-
         const distinctCmdCollection = pack.reduce<ICommandQueueItem[]>((arr, val) => {
             const cmd = this.queueItemByTransUnitKey[val];
             const rItem = reducer.get(cmd.hash);
@@ -124,6 +144,7 @@ class EditorTransUnitUpdateTaskManager {
                 reducer.set(cmd.hash, [cmd.transUnit]);
                 arr.push(cmd);
             }
+            transUnits.push(cmd.transUnit);
             return arr;
         }, []);
         // dequeue
@@ -137,7 +158,7 @@ class EditorTransUnitUpdateTaskManager {
         // read from file
         new Promise((resolve, reject) => {
             if (existsSync(this.targetFile)) {
-                readFile(this.targetFile, {encoding: 'utf8'}, (err, content) => {
+                readFile(this.targetFile, { encoding: 'utf8' }, (err, content) => {
                     const {
                         transUnitByMsgId, errors
                     } = Xliff.loadTransUnits(content, '');
@@ -178,24 +199,27 @@ class EditorTransUnitUpdateTaskManager {
                     xliffFile: '',
                     success: true,
                     transUnits: transUnits,
-                    errors: null,
+                    errors: {},
                 };
                 cmd.cb(result);
             });
         }).catch((err) => {
-            const error = { code: 0, message: `failed to save trans unit to '${this.targetFile}', ${err}`};
+            const error = { code: 0, message: `failed to save trans unit to '${this.targetFile}', ${err}` };
             distinctCmdCollection.forEach(cmd => {
                 let transUnits = reducer.get(cmd.hash)!;
                 let now = new Date();
                 let result: i18nWebView.TransUnitUpdateResult = {
                     time: now,
                     hash: now.getTime().toString(),
+                    success: true, // mark success and populate errors instead
                     commandName: 'update-trans-unit',
                     commandHash: cmd.hash,
                     xliffFile: '',
-                    success: false,
                     transUnits: transUnits,
-                    errors: null,
+                    errors: transUnits.reduce((a: { [name: string]: string }, v) => {
+                        a[v.key] = error.message;
+                        return a;
+                    }, {}),
                 };
                 cmd.cb(result);
             });
@@ -207,7 +231,7 @@ class EditorTransUnitUpdateTaskManager {
     private _writeTransUnits(transUnits: i18n.TransUnit[]): Promise<boolean> {
         const content = Xliff.writeTransUnits(transUnits, this.sourceLocale, this.targetLocale, false);
         return new Promise<any>((resolve, reject) => {
-            writeFile(this.targetFile, content, {encoding: 'utf8'}, (err) => {
+            writeFile(this.targetFile, content, { encoding: 'utf8' }, (err) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -289,13 +313,13 @@ export class EditorCommandHandler {
         let result: i18nWebView.LoadXliffFileResultEvent = {} as any;
         Promise.all(
             [
-                fsPromises.readFile(file, {encoding: 'utf8'}),
-                existsSync(targetXliff) ? fsPromises.readFile(targetXliff, {encoding: 'utf8'}) : Promise.resolve('NOT-EXISTS')
+                fsPromises.readFile(file, { encoding: 'utf8' }),
+                existsSync(targetXliff) ? fsPromises.readFile(targetXliff, { encoding: 'utf8' }) : Promise.resolve('NOT-EXISTS')
             ]
         ).then((fileReadResults) => {
             let sourceContent = fileReadResults[0];
             let targetContent = fileReadResults[1];
-            const {transUnitByMsgId, errors, sourceLocale} = Xliff.loadTransUnits(sourceContent, '');
+            const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(sourceContent, '');
             if (errors && errors.length > 0 || !sourceLocale) {
                 const errMsg = `failed to load trans units from ${file}. Errors: ${errors?.join('; ')}`;
                 result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
@@ -356,8 +380,8 @@ export class EditorCommandHandler {
         if (!manager) {
             let error: string | null = null;
             if (existsSync(targetXliff)) {
-                const targetXliffContent = readFileSync(targetXliff, {encoding: 'utf8'});
-                const {sourceLocale, targetLocale} = Xliff.loadFileLocaleInfo(targetXliffContent, '');
+                const targetXliffContent = readFileSync(targetXliff, { encoding: 'utf8' });
+                const { sourceLocale, targetLocale } = Xliff.loadFileLocaleInfo(targetXliffContent, '');
                 if (command.sourceLocale !== sourceLocale) {
                     error = `Unable to save trans units into '${targetXliff}': source locale is not match, actual: ${sourceLocale}, expected: ${command.sourceLocale}`;
                 } else if (command.targetLocale !== targetLocale) {
@@ -365,62 +389,91 @@ export class EditorCommandHandler {
                 }
                 if (error) {
                     const result = this.buildErrorCallbackResult('trans-unit-updated', command, error) as any;
-                    this.sendMessage('code-ctx-revealed', result);
+                    this.sendMessage('trans-unit-updated', result);
                     return;
                 }
             }
             G_TransUnitUpdateManagerDict[targetXliff] = manager = new EditorTransUnitUpdateTaskManager(command.sourceLocale, command.targetLocale, targetXliff);
         }
-        manager.pushCommand(command, (result: i18nWebView.TransUnitUpdateResult) => {
-            this.sendMessage('trans-unit-updated', result);
-        });
+        manager.pushCommand(
+            command,
+            (result: i18nWebView.TransUnitUpdateResult) => {
+                this.sendMessage('trans-unit-updated', result);
+            },
+            (result: i18nWebView.TransUnitOmittedResult) => {
+                this.sendMessage('trans-unit-omitted', result);
+            },
+        );
     }
 
     revealCodeCtx(command: i18nWebView.CodeContextRevealCommand) {
         const baseDir = vscode.workspace.rootPath;
         let codeFileLocation = path.resolve(baseDir!, command.file);
-        let result: i18nWebView.CodeContextRevealResultEvent = {} as any;
         exists(codeFileLocation, (exists: boolean) => {
             if (exists) {
-                const codeFileUri = vscode.Uri.parse('file:///' + codeFileLocation);
-                vscode.workspace.openTextDocument(codeFileUri).then((doc) => {
-                    vscode.window.showTextDocument(doc, this.activeCodeRevealEditor?.viewColumn ?? vscode.ViewColumn.Beside).then(editor => {
-                        this.activeCodeRevealEditor = editor;
-                        const block = command.blocks[0];
-                        const line = editor.document.lineAt(block.start - 1);
-                        let keywordRange: vscode.Range | null = null;
-                        if (block.needle) {
-                            // searching keyword
-                            const searchNeedle = StringUtils.isIdFromDigest(block.needle) ? ` i18n` : `@@${block.needle}`;
-                            keywordRange = this.locateKeywordInDocument(searchNeedle, line, editor.document);
-                            if (!keywordRange) {
-                                const errMsg = `failed to locate the key '${block.needle}' in '${command.file}'.`;
-                                result = this.buildErrorCallbackResult('code-ctx-revealed', command, errMsg) as any;
-                                this.sendMessage('code-ctx-revealed', result);
-                            }
-                        }
-                        vscode.commands
-                            .executeCommand('revealLine', {lineNumber: line.lineNumber, at: 'center'})
-                            .then(() => {
-                                editor.setDecorations(decoration, [{range: line.range}]);
-                                if (keywordRange && !editor.selection.isEqual(keywordRange)) {
-                                    editor.selections = [new vscode.Selection(keywordRange.start, keywordRange.end)];
-                                    editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
-                                    editor.setDecorations(keyDecoration, [{range: keywordRange}]);
+                const codeFileUri = vscode.Uri.parse(codeFileLocation);
+                vscode.workspace.openTextDocument(codeFileUri).then(
+                    (doc) => {
+                        vscode.window.showTextDocument(doc, this.activeCodeRevealEditor?.viewColumn ?? vscode.ViewColumn.Beside).then(
+                            editor => {
+                                this.activeCodeRevealEditor = editor;
+                                const block = command.blocks[0];
+                                const line = editor.document.lineAt(block.start - 1);
+                                let keywordRange: vscode.Range | null = null;
+                                if (block.needle) {
+                                    try {
+                                        // searching keyword
+                                        const searchNeedle = StringUtils.isIdFromDigest(block.needle) ? ` i18n` : `@@${block.needle}`;
+                                        keywordRange = this.locateKeywordInDocument(searchNeedle, line, editor.document);
+                                        if (!keywordRange) {
+                                            const errMsg = `failed to locate the key '${block.needle}' in '${command.file}'.`;
+                                            this.handleCodeCtxRevealFailed(command, errMsg);
+                                        }
+                                    } catch (e) {
+                                        const errMsg = `failed to reveal code context for '${command.file}': ${e.toString()}. [@locateKeywordInDocument]`;
+                                        this.handleCodeCtxRevealFailed(command, errMsg);
+                                    }
                                 }
-                            });
-                    });
-                }, (err) => {
-                    const errMsg = `failed to reveal code context for '${command.file}': ${err.toString()}.`;
-                    result = this.buildErrorCallbackResult('code-ctx-revealed', command, errMsg) as any;
-                    this.sendMessage('code-ctx-revealed', result);
-                });
+                                vscode.commands
+                                    .executeCommand('revealLine', { lineNumber: line.lineNumber, at: 'center' })
+                                    .then(
+                                        () => {
+                                            editor.setDecorations(lineDecoration, [{ range: line.range }]);
+                                            if (keywordRange && !editor.selection.isEqual(keywordRange)) {
+                                                editor.selections = [new vscode.Selection(keywordRange.start, keywordRange.end)];
+                                                editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
+                                                editor.setDecorations(keyDecoration, [{ range: keywordRange }]);
+                                            }
+                                            const result: i18nWebView.CodeContextRevealResultEvent = this.buildCallbackResultBase('code-ctx-revealed', command) as any;                                            
+                                            this.sendMessage('code-ctx-revealed', result);
+                                        },
+                                        (err) => {
+                                            const errMsg = `failed to reveal code context for '${command.file}': ${err.toString()}. [@revealLine]`;
+                                            this.handleCodeCtxRevealFailed(command, errMsg);
+                                        }
+                                    );
+                            },
+                            (err) => {
+                                const errMsg = `failed to reveal code context for '${command.file}': ${err.toString()}. [@showTextDocument]`;
+                                this.handleCodeCtxRevealFailed(command, errMsg);
+                            }
+                        );
+                    },
+                    (err) => {
+                        const errMsg = `failed to reveal code context for '${command.file}': ${err.toString()}. [@openTextDocument]`;
+                        this.handleCodeCtxRevealFailed(command, errMsg);
+                    }
+                );
             } else {
                 const errMsg = `failed to reveal code context for '${command.file}': file not exists.`;
-                result = this.buildErrorCallbackResult('code-ctx-revealed', command, errMsg) as any;
-                this.sendMessage('code-ctx-revealed', result);
+                this.handleCodeCtxRevealFailed(command, errMsg);
             }
         });
+    }
+
+    private handleCodeCtxRevealFailed(command: i18nWebView.CodeContextRevealCommand, message: string) {
+        const result = this.buildErrorCallbackResult('code-ctx-revealed', command, message) as any;
+        this.sendMessage('code-ctx-revealed', result);
     }
 
     private locateKeywordInDocument(keyword: string, line: vscode.TextLine, doc: vscode.TextDocument): vscode.Range | null {

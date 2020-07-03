@@ -149,13 +149,14 @@
         <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
           <a-col :span="24">
             <a-spin :spinning="xliffFileLoading" tip="Loading...">
-              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false" :loading="transUnitTable.filtering"
-                bordered>
+              <a-table :columns="transUnitTable.columns" :data-source="transUnitTable.transUnits" :pagination="false"
+                :loading="transUnitTable.filtering" bordered>
                 <!-- title slots -->
                 <span class="source-title-column" slot="sourceTitle">
                   <span>Source ({{ transUnitTable.sourceLocale }})</span>
                   <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input v-model="filterOptions.sourceKeyword" placeholder="Enter keyword to search">
+                    <a-input :value="filterOptions.sourceKeyword" allow-clear @change="onSourceKeywordChange"
+                      placeholder="Enter keyword to search">
                       <a-icon slot="prefix" type="search" />
                     </a-input>
                   </span>
@@ -163,7 +164,8 @@
                 <span class="source-title-column" slot="targetTitle">
                   <span>Translation ({{ transUnitTable.targetLocale }})</span>
                   <span :style="{ flex: 'auto', 'margin-left': '10px' }">
-                    <a-input v-model="filterOptions.targetKeyword" placeholder="Enter keyword to search">
+                    <a-input :value="filterOptions.targetKeyword" allow-clear @change="onTargetKeywordChange"
+                      placeholder="Enter keyword to search">
                       <a-icon slot="prefix" type="search" />
                     </a-input>
                   </span>
@@ -210,7 +212,8 @@
                           <div slot="content">
                             <p :style="{ margin: 0 }">For more details, please visit the following location(s):</p>
                             <p v-for="ctx in record.contextGroups" :style="{ margin: '3px 0', padding: '0 3px' }">
-                              <a href="" @click.prevent.stop="onCodeCtxClick(ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
+                              <a href=""
+                                @click.prevent.stop="onCodeCtxClick(ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
                             </p>
                           </div>
                           <a-icon class="pointer" type="file-text" theme="twoTone"></a-icon>

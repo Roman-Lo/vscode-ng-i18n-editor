@@ -90,20 +90,12 @@ export function bootstrap() {
       pageSize: 50,
     }
   } : MOCK_DATA;
-
+  let stored = '';
   Vue.use((window as any)['vue-dash-event']);
   Vue.use(antd);
   var app = new Vue({
     el: '#app',
     data: pageData,
-    watch: {
-      'filterOptions.sourceKeyword': () => {
-        app._debounceFilter800(1);
-      },
-      'filterOptions.targetKeyword': () => {
-        app._debounceFilter800(1);
-      },
-    },
     mounted() {
       document.getElementById('app')?.removeAttribute('pending');
       this.loadXliffFiles();
@@ -119,6 +111,22 @@ export function bootstrap() {
         this.loadXliffContent();
       },
       // filter events
+      onSourceKeywordChange($event: InputEvent) {
+        if ($event.target instanceof HTMLInputElement) {
+          const inputText = ($event.target as HTMLInputElement).value;
+          this._debounceUpdateKeyword('sourceKeyword', inputText);
+        }
+      },
+      onTargetKeywordChange($event: InputEvent) {
+        if ($event.target instanceof HTMLInputElement) {
+          const inputText = ($event.target as HTMLInputElement).value;
+          this._debounceUpdateKeyword('targetKeyword', inputText);
+        }
+      },
+      _debounceUpdateKeyword: debounce((field: string, value: string) => {
+        (pageData.filterOptions as any)[field] = value;
+        app._applyAndFlushPageData(1);
+      }, 500) as (field: string, value: string) => void,
       selectStateFilter(state: i18n.TranslationStateType, checked: boolean) {
         const idx = pageData.filterOptions.state.indexOf(state);
         if (checked && idx === -1) {
@@ -127,14 +135,16 @@ export function bootstrap() {
           pageData.filterOptions.state.splice(idx, 1);
         }
         this._debounceFilter800(1);
-        // applySearchFilter(pageData.filterOptions);
-        // this.onPageChange(1);
       },
       _debounceFilter800: debounce((pageNum: number, pageSize: number | undefined) => {
-        applySearchFilter(pageData.filterOptions);
-        app.onPageChange(pageNum, pageSize);
-        pageData.transUnitTable.filtering = false;
+        app._applyAndFlushPageData(pageNum, pageSize);
       }, 800) as (pageNum: number, pageSize?: number) => void,
+      _applyAndFlushPageData(pageNum: number, pageSize?: number) {
+        applySearchFilter(pageData.filterOptions);
+        this.onPageChange(pageNum, pageSize);
+        pageData.transUnitTable.filtering = false;
+      },
+
       // pagination
       onPageChange(pageNum: number, pageSize?: number) {
         if (pageSize) {
@@ -380,6 +390,8 @@ export function bootstrap() {
             setTimeout(() => {
               _transUnits = this.transUnitTable.transUnits;
               _transUnitsByKey = _transUnits.reduce((d: { [name: string]: any }, v) => {
+                v.__key_for_search__ = v.__key_for_search__.toUpperCase();
+                v.__key_for_search_target__ = v.__key_for_search_target__.toUpperCase();
                 d[v.key] = v;
                 return d;
               }, {});

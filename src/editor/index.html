@@ -213,7 +213,7 @@
                             <p :style="{ margin: 0 }">For more details, please visit the following location(s):</p>
                             <p v-for="ctx in record.contextGroups" :style="{ margin: '3px 0', padding: '0 3px' }">
                               <a href=""
-                                @click.prevent.stop="onCodeCtxClick(ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
+                                @click.prevent.stop="onCodeCtxClick(record, ctx, $event)">{{ ctx.sourceFile }}#L:{{ ctx.lineNumber }}</a>
                             </p>
                           </div>
                           <a-icon class="pointer" type="file-text" theme="twoTone"></a-icon>

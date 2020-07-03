@@ -365,8 +365,8 @@ export function bootstrap() {
         this.updateTransUnit(record);
       },
 
-      onCodeCtxClick(ctx: i18n.TransUnitContext, $event: MouseEvent) {
-        this.revealCodeContext(ctx);
+      onCodeCtxClick(record: i18nWebView.ITransUnitView, ctx: i18n.TransUnitContext, $event: MouseEvent) {
+        this.revealCodeContext(record, ctx);
       },
 
 
@@ -416,12 +416,13 @@ export function bootstrap() {
           );
         }
       },
-      revealCodeContext(block: i18n.TransUnitContext) {
+      revealCodeContext(transUnit: i18n.TransUnit, block: i18n.TransUnitContext) {
         let cmdBase = generateCommandBase();
         sendCommand('reveal-code-ctx',
           Object.assign(cmdBase, {
             file: block.sourceFile,
             blocks: [{
+              needle: transUnit.key,
               start: block.lineNumber,
               end: -1
             }],

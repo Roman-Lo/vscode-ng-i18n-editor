@@ -18,6 +18,7 @@ const _TARGET_TAG = 'target';
 const _UNIT_TAG = 'trans-unit';
 const _CONTEXT_GROUP_TAG = 'context-group';
 const _CONTEXT_TAG = 'context';
+const _NOTE_TAG = 'note';
 
 const _TARGET_STATE_ATTR = 'state';
 
@@ -92,13 +93,13 @@ export class Xliff {
           transUnit.children.push(
             new xml.CR(8),
             new xml.Tag(
-              'note', { priority: '1', from: 'description' }, [new xml.Text(item.description)]));
+              _NOTE_TAG, { priority: '1', from: 'description' }, [new xml.Text(item.description)]));
         }
 
         if (item.meaning) {
           transUnit.children.push(
             new xml.CR(8),
-            new xml.Tag('note', { priority: '1', from: 'meaning' }, [new xml.Text(item.meaning)]));
+            new xml.Tag(_NOTE_TAG, { priority: '1', from: 'meaning' }, [new xml.Text(item.meaning)]));
         }
       }
 
@@ -241,6 +242,7 @@ class XliffParser implements mlAst.Visitor {
       case _SOURCE_TAG:
       case _TARGET_TAG:
       case _CONTEXT_TAG:
+      case _NOTE_TAG:
         const innerTextStart = element.startSourceSpan!.end.offset;
         const innerTextEnd = element.endSourceSpan!.start.offset;
         const content = element.startSourceSpan!.start.file.content;
@@ -256,7 +258,7 @@ class XliffParser implements mlAst.Visitor {
             this._unitMlTargetState = 'translated';
           }
           this._unitMlTargetString = innerText;
-        } else {
+        } else if (element.name === _CONTEXT_TAG) {
           // context tag
           const ctxTypeAttr = element.attrs.find((attr) => attr.name === 'context-type');
           if (ctxTypeAttr) {
@@ -269,6 +271,16 @@ class XliffParser implements mlAst.Visitor {
                 break;
               default:
                 break;
+            }
+          }
+        } else {
+          // note tag
+          const noteFromAttr = element.attrs.find(x => x.name === 'from');
+          if (noteFromAttr) {
+            if (noteFromAttr.value === 'description') {
+              this._unitMlDescription = innerText;
+            } else if (noteFromAttr.value === 'meaning') {
+              this._unitMlMeaning = innerText;
             }
           }
         }

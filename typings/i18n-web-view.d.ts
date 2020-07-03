@@ -61,6 +61,12 @@ declare namespace i18nWebView // i18n-webview
   interface CodeContextRevealCommand extends ExtEventBase {
     readonly file: string;
     readonly blocks: {
+      /**
+       * hightlight if defined
+       *
+       * @type {string}
+       */
+      needle?: string,
       start: number;
       /**
        * -1 as not defined

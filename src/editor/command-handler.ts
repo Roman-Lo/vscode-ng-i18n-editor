@@ -290,7 +290,7 @@ export class EditorCommandHandler {
 
     listXliffFiles(command: i18nWebView.ListXliffFilesCommand) {
         const baseDir = vscode.workspace.rootPath;
-        let detectionRootFolder = path.resolve(baseDir!, this.setting.dir);
+        let detectionRootFolder = path.resolve(baseDir!);
         let result: i18nWebView.ListXliffFilesResultEvent = {
             ...this.buildCallbackResultBase(
                 'list-xliff-files', command

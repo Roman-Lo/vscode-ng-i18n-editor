@@ -55,7 +55,7 @@ interface INgI18nExtSetting {
    * @type {string}
    * @memberof II18nEditorSetting
    */
-  dir: string;
+  // dir: string;
   /**
    * the target locales
    *

@@ -253,6 +253,7 @@ export class EditorCommandHandler {
         'load-xliff-file': 'xliff-file-loaded',
         'load-trans-unit-code-ctx': 'trans-unit-code-ctx-loaded',
         'update-trans-unit': 'trans-unit-updated',
+        'reveal-code-ctx': 'code-ctx-revealed',
     };
 
     constructor(
@@ -272,10 +273,10 @@ export class EditorCommandHandler {
             .map((val, idx) => idx === 0 ? val : `${val[0].toUpperCase()}${val.substring(1)}`)
             .join('');
         const handler = (this as any)[handlerName] as Function;
-        const callbackCmd = (EditorCommandHandler.commandResultMap as any)[command];
         if (typeof handler === 'function') {
             handler.apply(this, [message]);
         } else {
+            const callbackCmd = (EditorCommandHandler.commandResultMap as any)[command];
             if (callbackCmd) {
                 const errorMsg = `handler not found for command: ${command}, expected: ${handlerName}`;
                 const error = this.buildErrorCallbackResult(command, message, errorMsg, -1);

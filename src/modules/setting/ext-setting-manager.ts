@@ -44,7 +44,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
   private _event_subscribers: {
     [counter: string]: {
       changeCb: ExtChangedFunc;
-      disposeCb: () => void | null;
+      disposeCb: (() => void) | null;
     }
   } = {};
 
@@ -95,7 +95,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
     }
   }
 
-  onSettingDidChange(onChange: ExtChangedFunc, onDispose: () => void | null): IExtChangedEventSubscription {
+  onSettingDidChange(onChange: ExtChangedFunc, onDispose: (() => void) | null = null): IExtChangedEventSubscription {
     const counter = ExtensionSettingManager._g_listener_counter++;
     this._event_subscribers[counter.toString()] = {changeCb: onChange, disposeCb: onDispose};
     return new ExtChangedEventSubscription(counter, (c: number) => {
@@ -156,7 +156,9 @@ export class ExtensionSettingManager implements vscode.Disposable {
     });
     Object.values(this._event_subscribers).forEach(s => {
       try {
-        s.disposeCb();
+        if (s.disposeCb) {
+          s.disposeCb();
+        }
       } catch (e) {
       }
     });

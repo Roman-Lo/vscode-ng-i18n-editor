@@ -15,23 +15,14 @@ export function activate(context: vscode.ExtensionContext) {
   configFileAssociations();
   ExtensionSettingManager.create(context).then(
     (settingManager) => {
-      const builder = new EditorWebViewBuilder();
+      const builder = new EditorWebViewBuilder(settingManager);
 
-      let viewsubs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
-        builder.create(context, settingManager.setting);
-      });
-
-      let watchersubs = vscode.workspace.onDidSaveTextDocument((event) => {
-        if (
-          event.fileName.endsWith('.xlf') ||
-          event.fileName.endsWith('.xliff')
-        ) {
-          builder.reload(context, settingManager.setting);
-        }
+      let view_subs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
+        builder.create(context);
       });
 
       context.subscriptions.push(
-        viewsubs, watchersubs
+        view_subs
       );
     }
   );

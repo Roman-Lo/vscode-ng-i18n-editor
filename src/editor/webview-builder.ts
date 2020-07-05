@@ -2,21 +2,31 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import {EditorCommandHandler} from './command-handler';
+import {ExtensionSettingManager, IExtChangedEventSubscription} from "../modules/setting/ext-setting-manager";
 
 
 export class EditorWebViewBuilder {
   private currentPanel: vscode.WebviewPanel | undefined = undefined;
   private commandHandler: EditorCommandHandler | undefined = undefined;
+  private settingChangeSub: IExtChangedEventSubscription | undefined = undefined;
 
   public readonly panelName = 'ngI18nEditor';
   public readonly panelTitle = 'Angular I18n Xliff Editor';
 
-  constructor() {
+
+  get setting(): INgI18nExtSetting {
+    return this.settingManager.setting;
+  }
+
+  constructor(private readonly settingManager: ExtensionSettingManager) {
+  }
+
+  private init() {
+
   }
 
   public create(
-    ctx: vscode.ExtensionContext,
-    setting: INgI18nExtSetting
+    ctx: vscode.ExtensionContext
   ) {
     const columnToShownIn = vscode.window.activeTextEditor ?
       vscode.window.activeTextEditor.viewColumn :
@@ -25,7 +35,7 @@ export class EditorWebViewBuilder {
       this.currentPanel.reveal(columnToShownIn);
     } else {
 
-      let panel = vscode.window.createWebviewPanel(
+      const panel = vscode.window.createWebviewPanel(
         this.panelName, this.panelTitle, vscode.ViewColumn.One,
         {
           enableScripts: true,
@@ -37,12 +47,9 @@ export class EditorWebViewBuilder {
         }
       );
 
-      const parsedHtml = this.buildWebViewHtml(panel, ctx, setting);
+      panel.webview.html = this.buildWebViewHtml(panel, ctx);
 
-      panel.webview.html = parsedHtml;
-
-
-      this.commandHandler = new EditorCommandHandler(panel.webview, setting);
+      this.commandHandler = new EditorCommandHandler(panel.webview, this.setting);
       panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
         try {
           this.commandHandler?.handle(message.command, message.data);
@@ -55,25 +62,26 @@ export class EditorWebViewBuilder {
         this.cleanObjects();
       }, null, ctx.subscriptions);
 
+      this.settingChangeSub = this.settingManager.onSettingDidChange(() => {
+        // this.reload(ctx);
+      }, () => {});
+
       this.currentPanel = panel;
     }
   }
 
   public reload(
-    ctx: vscode.ExtensionContext,
-    setting: INgI18nExtSetting
+    ctx: vscode.ExtensionContext
   ) {
     if (this.currentPanel) {
-      this.commandHandler?.updateSetting(setting);
-      const parsedHtml = this.buildWebViewHtml(this.currentPanel, ctx, setting);
-      this.currentPanel.webview.html = parsedHtml;
+      this.commandHandler?.updateSetting(this.setting);
+      this.currentPanel.webview.html = this.buildWebViewHtml(this.currentPanel, ctx);
     }
   }
 
   private buildWebViewHtml(
     panel: vscode.WebviewPanel,
-    ctx: vscode.ExtensionContext,
-    setting: INgI18nExtSetting
+    ctx: vscode.ExtensionContext
   ) {
     const vueJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
       path.join(ctx.extensionPath, 'libs', 'vue', '2.6.11', 'vue.js')
@@ -112,5 +120,9 @@ export class EditorWebViewBuilder {
   private cleanObjects() {
     this.currentPanel = undefined;
     this.commandHandler = undefined;
+    if (this.settingChangeSub) {
+      this.settingChangeSub.unsubscribe();
+      this.settingChangeSub = undefined;
+    }
   }
 }

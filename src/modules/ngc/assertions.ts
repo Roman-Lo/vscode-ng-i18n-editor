@@ -1,4 +1,3 @@
-
 const UNUSABLE_INTERPOLATION_REGEXPS = [
   /^\s*$/,        // empty
   /[<>]/,         // html tag

@@ -2,6 +2,7 @@ namespace ngc.expression_parser {
 
   export class ParserError {
     public message: string;
+
     constructor(
       message: string, public input: string, public errLocation: string, public ctxLocation?: any) {
       this.message = `Parser Error: ${message} ${errLocation} [${input}] in ${ctxLocation}`;
@@ -9,13 +10,21 @@ namespace ngc.expression_parser {
   }
 
   export class ParseSpan {
-    constructor(public start: number, public end: number) { }
+    constructor(public start: number, public end: number) {
+    }
   }
 
   export class AST {
-    constructor(public span: ParseSpan) { }
-    visit(visitor: AstVisitor, context: any = null): any { return null; }
-    toString(): string { return 'AST'; }
+    constructor(public span: ParseSpan) {
+    }
+
+    visit(visitor: AstVisitor, context: any = null): any {
+      return null;
+    }
+
+    toString(): string {
+      return 'AST';
+    }
   }
 
 
@@ -38,8 +47,14 @@ namespace ngc.expression_parser {
       public location: any) {
       super(span);
     }
-    visit(visitor: AstVisitor, context: any = null): any { return visitor.visitQuote(this, context); }
-    toString(): string { return 'Quote'; }
+
+    visit(visitor: AstVisitor, context: any = null): any {
+      return visitor.visitQuote(this, context);
+    }
+
+    toString(): string {
+      return 'Quote';
+    }
   }
 
   export class EmptyExpr extends AST {
@@ -58,21 +73,30 @@ namespace ngc.expression_parser {
    * Multiple expressions separated by a semicolon.
    */
   export class Chain extends AST {
-    constructor(span: ParseSpan, public expressions: any[]) { super(span); }
-    visit(visitor: AstVisitor, context: any = null): any { return visitor.visitChain(this, context); }
+    constructor(span: ParseSpan, public expressions: any[]) {
+      super(span);
+    }
+
+    visit(visitor: AstVisitor, context: any = null): any {
+      return visitor.visitChain(this, context);
+    }
   }
 
   export class Conditional extends AST {
     constructor(span: ParseSpan, public condition: AST, public trueExp: AST, public falseExp: AST) {
       super(span);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitConditional(this, context);
     }
   }
 
   export class PropertyRead extends AST {
-    constructor(span: ParseSpan, public receiver: AST, public name: string) { super(span); }
+    constructor(span: ParseSpan, public receiver: AST, public name: string) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitPropertyRead(this, context);
     }
@@ -82,27 +106,37 @@ namespace ngc.expression_parser {
     constructor(span: ParseSpan, public receiver: AST, public name: string, public value: AST) {
       super(span);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitPropertyWrite(this, context);
     }
   }
 
   export class SafePropertyRead extends AST {
-    constructor(span: ParseSpan, public receiver: AST, public name: string) { super(span); }
+    constructor(span: ParseSpan, public receiver: AST, public name: string) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitSafePropertyRead(this, context);
     }
   }
 
   export class KeyedRead extends AST {
-    constructor(span: ParseSpan, public obj: AST, public key: AST) { super(span); }
+    constructor(span: ParseSpan, public obj: AST, public key: AST) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitKeyedRead(this, context);
     }
   }
 
   export class KeyedWrite extends AST {
-    constructor(span: ParseSpan, public obj: AST, public key: AST, public value: AST) { super(span); }
+    constructor(span: ParseSpan, public obj: AST, public key: AST, public value: AST) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitKeyedWrite(this, context);
     }
@@ -112,18 +146,27 @@ namespace ngc.expression_parser {
     constructor(span: ParseSpan, public exp: AST, public name: string, public args: any[]) {
       super(span);
     }
-    visit(visitor: AstVisitor, context: any = null): any { return visitor.visitPipe(this, context); }
+
+    visit(visitor: AstVisitor, context: any = null): any {
+      return visitor.visitPipe(this, context);
+    }
   }
 
   export class LiteralPrimitive extends AST {
-    constructor(span: ParseSpan, public value: any) { super(span); }
+    constructor(span: ParseSpan, public value: any) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitLiteralPrimitive(this, context);
     }
   }
 
   export class LiteralArray extends AST {
-    constructor(span: ParseSpan, public expressions: any[]) { super(span); }
+    constructor(span: ParseSpan, public expressions: any[]) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitLiteralArray(this, context);
     }
@@ -134,14 +177,20 @@ namespace ngc.expression_parser {
   };
 
   export class LiteralMap extends AST {
-    constructor(span: ParseSpan, public keys: LiteralMapKey[], public values: any[]) { super(span); }
+    constructor(span: ParseSpan, public keys: LiteralMapKey[], public values: any[]) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitLiteralMap(this, context);
     }
   }
 
   export class Interpolation extends AST {
-    constructor(span: ParseSpan, public strings: any[], public expressions: any[]) { super(span); }
+    constructor(span: ParseSpan, public strings: any[], public expressions: any[]) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitInterpolation(this, context);
     }
@@ -151,20 +200,27 @@ namespace ngc.expression_parser {
     constructor(span: ParseSpan, public operation: string, public left: AST, public right: AST) {
       super(span);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitBinary(this, context);
     }
   }
 
   export class PrefixNot extends AST {
-    constructor(span: ParseSpan, public expression: AST) { super(span); }
+    constructor(span: ParseSpan, public expression: AST) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitPrefixNot(this, context);
     }
   }
 
   export class NonNullAssert extends AST {
-    constructor(span: ParseSpan, public expression: AST) { super(span); }
+    constructor(span: ParseSpan, public expression: AST) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitNonNullAssert(this, context);
     }
@@ -174,6 +230,7 @@ namespace ngc.expression_parser {
     constructor(span: ParseSpan, public receiver: AST, public name: string, public args: any[]) {
       super(span);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitMethodCall(this, context);
     }
@@ -183,13 +240,17 @@ namespace ngc.expression_parser {
     constructor(span: ParseSpan, public receiver: AST, public name: string, public args: any[]) {
       super(span);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitSafeMethodCall(this, context);
     }
   }
 
   export class FunctionCall extends AST {
-    constructor(span: ParseSpan, public target: AST | null, public args: any[]) { super(span); }
+    constructor(span: ParseSpan, public target: AST | null, public args: any[]) {
+      super(span);
+    }
+
     visit(visitor: AstVisitor, context: any = null): any {
       return visitor.visitFunctionCall(this, context);
     }
@@ -200,54 +261,82 @@ namespace ngc.expression_parser {
    * starting and ending byte offsets, respectively, of the text span in a source file.
    */
   export class AbsoluteSourceSpan {
-    constructor(public start: number, public end: number) { }
+    constructor(public start: number, public end: number) {
+    }
   }
 
   export class ASTWithSource extends AST {
     public sourceSpan: AbsoluteSourceSpan;
+
     constructor(
       public ast: AST, public source: string | null, public location: string, absoluteOffset: number,
       public errors: ParserError[]) {
       super(new ParseSpan(0, source == null ? 0 : source.length));
       this.sourceSpan = new AbsoluteSourceSpan(absoluteOffset, absoluteOffset + this.span.end);
     }
+
     visit(visitor: AstVisitor, context: any = null): any {
       if (visitor.visitASTWithSource) {
         return visitor.visitASTWithSource(this, context);
       }
       return this.ast.visit(visitor, context);
     }
-    toString(): string { return `${this.source} in ${this.location}`; }
+
+    toString(): string {
+      return `${this.source} in ${this.location}`;
+    }
   }
 
   export class TemplateBinding {
     constructor(
       public span: ParseSpan, public key: string, public keyIsVar: boolean, public name: string,
-      public expression: ASTWithSource | null) { }
+      public expression: ASTWithSource | null) {
+    }
   }
 
   export interface AstVisitor {
     visitBinary(ast: Binary, context: any): any;
+
     visitChain(ast: Chain, context: any): any;
+
     visitConditional(ast: Conditional, context: any): any;
+
     visitFunctionCall(ast: FunctionCall, context: any): any;
+
     visitImplicitReceiver(ast: ImplicitReceiver, context: any): any;
+
     visitInterpolation(ast: Interpolation, context: any): any;
+
     visitKeyedRead(ast: KeyedRead, context: any): any;
+
     visitKeyedWrite(ast: KeyedWrite, context: any): any;
+
     visitLiteralArray(ast: LiteralArray, context: any): any;
+
     visitLiteralMap(ast: LiteralMap, context: any): any;
+
     visitLiteralPrimitive(ast: LiteralPrimitive, context: any): any;
+
     visitMethodCall(ast: MethodCall, context: any): any;
+
     visitPipe(ast: BindingPipe, context: any): any;
+
     visitPrefixNot(ast: PrefixNot, context: any): any;
+
     visitNonNullAssert(ast: NonNullAssert, context: any): any;
+
     visitPropertyRead(ast: PropertyRead, context: any): any;
+
     visitPropertyWrite(ast: PropertyWrite, context: any): any;
+
     visitQuote(ast: Quote, context: any): any;
+
     visitSafeMethodCall(ast: SafeMethodCall, context: any): any;
+
     visitSafePropertyRead(ast: SafePropertyRead, context: any): any;
+
     visitASTWithSource?(ast: ASTWithSource, context: any): any;
+
     visit?(ast: AST, context?: any): any;
   }
 }

@@ -19,7 +19,7 @@ interface ITranslationMemorySetting {
    */
   mode: 'git' | 'remote';
   /**
-   * defaults: 
+   * defaults:
    * = git: .ngI18nExt/ext.xtm
    *
    * @type {string}
@@ -55,7 +55,7 @@ interface INgI18nExtSetting {
    * @type {string}
    * @memberof II18nEditorSetting
    */
-  dir: string;
+  // dir: string;
   /**
    * the target locales
    *
@@ -70,4 +70,5 @@ interface INgI18nExtSetting {
 declare function acquireVsCodeApi(): any;
 
 declare function loadScriptOrStyle(type: 'script' | 'style', src: string, cb: () => void): void;
+
 declare function acquireVsCodeApi(): void;

@@ -8,8 +8,11 @@
 
 export interface IVisitor {
   visitTag(tag: Tag): any;
+
   visitText(text: Text): any;
+
   visitDeclaration(decl: Declaration): any;
+
   visitDoctype(doctype: Doctype): any;
 }
 
@@ -25,7 +28,9 @@ class XmlVisitor implements IVisitor {
     return `<${tag.name}${strAttrs}>${strChildren.join('')}</${tag.name}>`;
   }
 
-  visitText(text: Text): string { return text.value; }
+  visitText(text: Text): string {
+    return text.value;
+  }
 
   visitDeclaration(decl: Declaration): string {
     return `<?xml${this._serializeAttributes(decl.attrs)} ?>`;
@@ -48,7 +53,9 @@ export function serialize(nodes: Node[]): string {
 }
 
 
-export interface Node { visit(visitor: IVisitor): any; }
+export interface Node {
+  visit(visitor: IVisitor): any;
+}
 
 export class Declaration implements Node {
   public attrs: { [k: string]: string } = {};
@@ -59,13 +66,18 @@ export class Declaration implements Node {
     });
   }
 
-  visit(visitor: IVisitor): any { return visitor.visitDeclaration(this); }
+  visit(visitor: IVisitor): any {
+    return visitor.visitDeclaration(this);
+  }
 }
 
 export class Doctype implements Node {
-  constructor(public rootTag: string, public dtd: string) { }
+  constructor(public rootTag: string, public dtd: string) {
+  }
 
-  visit(visitor: IVisitor): any { return visitor.visitDoctype(this); }
+  visit(visitor: IVisitor): any {
+    return visitor.visitDoctype(this);
+  }
 }
 
 export class Tag implements Node {
@@ -79,18 +91,27 @@ export class Tag implements Node {
     });
   }
 
-  visit(visitor: IVisitor): any { return visitor.visitTag(this); }
+  visit(visitor: IVisitor): any {
+    return visitor.visitTag(this);
+  }
 }
 
 export class Text implements Node {
   value: string;
-  constructor(unescapedValue: string) { this.value = escapeXml(unescapedValue); }
 
-  visit(visitor: IVisitor): any { return visitor.visitText(this); }
+  constructor(unescapedValue: string) {
+    this.value = escapeXml(unescapedValue);
+  }
+
+  visit(visitor: IVisitor): any {
+    return visitor.visitText(this);
+  }
 }
 
 export class CR extends Text {
-  constructor(ws: number = 0) { super(`\n${new Array(ws + 1).join(' ')}`); }
+  constructor(ws: number = 0) {
+    super(`\n${new Array(ws + 1).join(' ')}`);
+  }
 }
 
 const _ESCAPED_CHARS: [RegExp, string][] = [

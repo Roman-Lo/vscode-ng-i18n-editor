@@ -14,7 +14,7 @@ export enum TagContentType {
 
 export interface TagDefinition {
   closedByParent: boolean;
-  implicitNamespacePrefix: string|null;
+  implicitNamespacePrefix: string | null;
   contentType: TagContentType;
   isVoid: boolean;
   ignoreFirstLf: boolean;
@@ -54,7 +54,7 @@ export function isNgTemplate(tagName: string): boolean {
 
 export function getNsPrefix(fullName: string): string;
 export function getNsPrefix(fullName: null): null;
-export function getNsPrefix(fullName: string | null): string|null {
+export function getNsPrefix(fullName: string | null): string | null {
   return fullName === null ? null : splitNsName(fullName)[0];
 }
 
@@ -67,7 +67,7 @@ export function mergeNsAndName(prefix: string, localName: string): string {
 // This list is not exhaustive to keep the compiler footprint low.
 // The `&#123;` / `&#x1ab;` syntax should be used when the named character reference does not
 // exist.
-export const NAMED_ENTITIES: {[k: string]: string} = {
+export const NAMED_ENTITIES: { [k: string]: string } = {
   'Aacute': '\u00C1',
   'aacute': '\u00E1',
   'Acirc': '\u00C2',

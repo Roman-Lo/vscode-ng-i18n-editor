@@ -1,11 +1,10 @@
 import * as mlAst from "../ngc/ml_parser/ast";
-import { XmlParser } from "../ngc/ml_parser/xml_parser";
-import { StringUtils } from "../common/string.util";
-import { serialize } from "../ngc/i18n/serializers/xml_helper";
+import {XmlParser} from "../ngc/ml_parser/xml_parser";
+import {StringUtils} from "../common/string.util";
+import {serialize} from "../ngc/i18n/serializers/xml_helper";
 
 const _ROOT_TAG = "root";
 const _PLACEHOLDER_TAG = 'x';
-
 
 
 export class I18nHtml {
@@ -37,7 +36,7 @@ class I18nHtmlPartParser implements mlAst.Visitor {
   }
 
   parse(i18nHtml: string): i18n.I18nHtmlPart[] {
-    const parseResult = this._xmlParser.parse(`<${_ROOT_TAG}>${i18nHtml}</${_ROOT_TAG}>`, '', { tokenizeExpansionForms: true });
+    const parseResult = this._xmlParser.parse(`<${_ROOT_TAG}>${i18nHtml}</${_ROOT_TAG}>`, '', {tokenizeExpansionForms: true});
     if (parseResult.errors.length > 0) {
       throw new Error(`Failed to build i18n html part. Html: ${i18nHtml}`);
     }
@@ -110,7 +109,6 @@ class I18nHtmlPartParser implements mlAst.Visitor {
     return phPart;
   }
 }
-
 
 
 // class I18nHtmlIdentifierParser implements mlAst.Visitor {

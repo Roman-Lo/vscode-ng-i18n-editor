@@ -5,23 +5,24 @@ import * as lex from './lexer';
 import {TagDefinition, getNsPrefix, isNgContainer, mergeNsAndName} from './tags';
 
 
-
 export class TreeError extends ParseError {
-  static create(elementName: string|null, span: ParseSourceSpan, msg: string): TreeError {
+  static create(elementName: string | null, span: ParseSourceSpan, msg: string): TreeError {
     return new TreeError(elementName, span, msg);
   }
 
-  constructor(public elementName: string|null, span: ParseSourceSpan, msg: string) {
+  constructor(public elementName: string | null, span: ParseSourceSpan, msg: string) {
     super(span, msg);
   }
 }
 
 export class ParseTreeResult {
-  constructor(public rootNodes: html.Node[], public errors: ParseError[]) {}
+  constructor(public rootNodes: html.Node[], public errors: ParseError[]) {
+  }
 }
 
 export class Parser {
-  constructor(public getTagDefinition: (tagName: string) => TagDefinition) {}
+  constructor(public getTagDefinition: (tagName: string) => TagDefinition) {
+  }
 
   parse(source: string, url: string, options?: lex.TokenizeOptions): ParseTreeResult {
     const tokensAndErrors = lex.tokenize(source, url, this.getTagDefinition, options);
@@ -29,8 +30,8 @@ export class Parser {
     const treeAndErrors = new MlTreeBuilder(tokensAndErrors.tokens, this.getTagDefinition).build();
 
     return new ParseTreeResult(
-        treeAndErrors.rootNodes,
-        (<ParseError[]>tokensAndErrors.errors).concat(treeAndErrors.errors));
+      treeAndErrors.rootNodes,
+      (<ParseError[]>tokensAndErrors.errors).concat(treeAndErrors.errors));
   }
 }
 
@@ -45,7 +46,7 @@ class MlTreeBuilder {
   private _elementStack: html.Element[] = [];
 
   constructor(
-      private tokens: lex.Token[], private getTagDefinition: (tagName: string) => TagDefinition) {
+    private tokens: lex.Token[], private getTagDefinition: (tagName: string) => TagDefinition) {
     this._advance();
   }
 
@@ -62,8 +63,8 @@ class MlTreeBuilder {
         this._closeVoidElement();
         this._consumeComment(this._advance());
       } else if (
-          this._peek.type === lex.TokenType.TEXT || this._peek.type === lex.TokenType.RAW_TEXT ||
-          this._peek.type === lex.TokenType.ESCAPABLE_RAW_TEXT) {
+        this._peek.type === lex.TokenType.TEXT || this._peek.type === lex.TokenType.RAW_TEXT ||
+        this._peek.type === lex.TokenType.ESCAPABLE_RAW_TEXT) {
         this._closeVoidElement();
         this._consumeText(this._advance());
       } else if (this._peek.type === lex.TokenType.EXPANSION_FORM_START) {
@@ -86,7 +87,7 @@ class MlTreeBuilder {
     return prev;
   }
 
-  private _advanceIf(type: lex.TokenType): lex.Token|null {
+  private _advanceIf(type: lex.TokenType): lex.Token | null {
     if (this._peek.type === type) {
       return this._advance();
     }
@@ -121,23 +122,23 @@ class MlTreeBuilder {
     // read the final }
     if (this._peek.type !== lex.TokenType.EXPANSION_FORM_END) {
       this._errors.push(
-          TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '}'.`));
+        TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '}'.`));
       return;
     }
     const sourceSpan = new ParseSourceSpan(token.sourceSpan.start, this._peek.sourceSpan.end);
     this._addToParent(new html.Expansion(
-        switchValue.parts[0], type.parts[0], cases, sourceSpan, switchValue.sourceSpan));
+      switchValue.parts[0], type.parts[0], cases, sourceSpan, switchValue.sourceSpan));
 
     this._advance();
   }
 
-  private _parseExpansionCase(): html.ExpansionCase|null {
+  private _parseExpansionCase(): html.ExpansionCase | null {
     const value = this._advance();
 
     // read {
     if (this._peek.type !== lex.TokenType.EXPANSION_CASE_EXP_START) {
       this._errors.push(
-          TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '{'.`));
+        TreeError.create(null, this._peek.sourceSpan, `Invalid ICU message. Missing '{'.`));
       return null;
     }
 
@@ -160,16 +161,16 @@ class MlTreeBuilder {
     const sourceSpan = new ParseSourceSpan(value.sourceSpan.start, end.sourceSpan.end);
     const expSourceSpan = new ParseSourceSpan(start.sourceSpan.start, end.sourceSpan.end);
     return new html.ExpansionCase(
-        value.parts[0], parsedExp.rootNodes, sourceSpan, value.sourceSpan, expSourceSpan);
+      value.parts[0], parsedExp.rootNodes, sourceSpan, value.sourceSpan, expSourceSpan);
   }
 
-  private _collectExpansionExpTokens(start: lex.Token): lex.Token[]|null {
+  private _collectExpansionExpTokens(start: lex.Token): lex.Token[] | null {
     const exp: lex.Token[] = [];
     const expansionFormStack = [lex.TokenType.EXPANSION_CASE_EXP_START];
 
     while (true) {
       if (this._peek.type === lex.TokenType.EXPANSION_FORM_START ||
-          this._peek.type === lex.TokenType.EXPANSION_CASE_EXP_START) {
+        this._peek.type === lex.TokenType.EXPANSION_CASE_EXP_START) {
         expansionFormStack.push(this._peek.type);
       }
 
@@ -180,7 +181,7 @@ class MlTreeBuilder {
 
         } else {
           this._errors.push(
-              TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
+            TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
           return null;
         }
       }
@@ -190,14 +191,14 @@ class MlTreeBuilder {
           expansionFormStack.pop();
         } else {
           this._errors.push(
-              TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
+            TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
           return null;
         }
       }
 
       if (this._peek.type === lex.TokenType.EOF) {
         this._errors.push(
-            TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
+          TreeError.create(null, start.sourceSpan, `Invalid ICU message. Missing '}'.`));
         return null;
       }
 
@@ -210,7 +211,7 @@ class MlTreeBuilder {
     if (text.length > 0 && text[0] == '\n') {
       const parent = this._getParentElement();
       if (parent != null && parent.children.length == 0 &&
-          this.getTagDefinition(parent.name).ignoreFirstLf) {
+        this.getTagDefinition(parent.name).ignoreFirstLf) {
         text = text.substring(1);
       }
     }
@@ -244,8 +245,8 @@ class MlTreeBuilder {
       const tagDef = this.getTagDefinition(fullName);
       if (!(tagDef.canSelfClose || getNsPrefix(fullName) !== null || tagDef.isVoid)) {
         this._errors.push(TreeError.create(
-            fullName, startTagToken.sourceSpan,
-            `Only void and foreign elements can be self closed "${startTagToken.parts[1]}"`));
+          fullName, startTagToken.sourceSpan,
+          `Only void and foreign elements can be self closed "${startTagToken.parts[1]}"`));
       }
     } else if (this._peek.type === lex.TokenType.TAG_OPEN_END) {
       this._advance();
@@ -274,7 +275,7 @@ class MlTreeBuilder {
 
   private _consumeEndTag(endTagToken: lex.Token) {
     const fullName = this._getElementFullName(
-        endTagToken.parts[0], endTagToken.parts[1], this._getParentElement());
+      endTagToken.parts[0], endTagToken.parts[1], this._getParentElement());
 
     if (this._getParentElement()) {
       this._getParentElement() !.endSourceSpan = endTagToken.sourceSpan;
@@ -282,11 +283,11 @@ class MlTreeBuilder {
 
     if (this.getTagDefinition(fullName).isVoid) {
       this._errors.push(TreeError.create(
-          fullName, endTagToken.sourceSpan,
-          `Void elements do not have end tags "${endTagToken.parts[1]}"`));
+        fullName, endTagToken.sourceSpan,
+        `Void elements do not have end tags "${endTagToken.parts[1]}"`));
     } else if (!this._popElement(fullName)) {
       const errMsg =
-          `Unexpected closing tag "${fullName}". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags`;
+        `Unexpected closing tag "${fullName}". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags`;
       this._errors.push(TreeError.create(fullName, endTagToken.sourceSpan, errMsg));
     }
   }
@@ -325,10 +326,10 @@ class MlTreeBuilder {
       end = quoteToken.sourceSpan.end;
     }
     return new html.Attribute(
-        fullName, value, new ParseSourceSpan(attrName.sourceSpan.start, end), valueSpan);
+      fullName, value, new ParseSourceSpan(attrName.sourceSpan.start, end), valueSpan);
   }
 
-  private _getParentElement(): html.Element|null {
+  private _getParentElement(): html.Element | null {
     return this._elementStack.length > 0 ? this._elementStack[this._elementStack.length - 1] : null;
   }
 
@@ -338,8 +339,8 @@ class MlTreeBuilder {
    * `<ng-container>` elements are skipped as they are not rendered as DOM element.
    */
   private _getParentElementSkippingContainers():
-      {parent: html.Element | null, container: html.Element|null} {
-    let container: html.Element|null = null;
+    { parent: html.Element | null, container: html.Element | null } {
+    let container: html.Element | null = null;
 
     for (let i = this._elementStack.length - 1; i >= 0; i--) {
       if (!isNgContainer(this._elementStack[i].name)) {
@@ -368,7 +369,7 @@ class MlTreeBuilder {
    * @internal
    */
   private _insertBeforeContainer(
-      parent: html.Element, container: html.Element|null, node: html.Element) {
+    parent: html.Element, container: html.Element | null, node: html.Element) {
     if (!container) {
       this._addToParent(node);
       this._elementStack.push(node);
@@ -385,8 +386,8 @@ class MlTreeBuilder {
     }
   }
 
-  private _getElementFullName(prefix: string, localName: string, parentElement: html.Element|null):
-      string {
+  private _getElementFullName(prefix: string, localName: string, parentElement: html.Element | null):
+    string {
     if (prefix === '') {
       prefix = this.getTagDefinition(localName).implicitNamespacePrefix || '';
       if (prefix === '' && parentElement != null) {

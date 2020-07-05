@@ -72,3 +72,8 @@ declare function acquireVsCodeApi(): any;
 declare function loadScriptOrStyle(type: 'script' | 'style', src: string, cb: () => void): void;
 
 declare function acquireVsCodeApi(): void;
+
+declare module "*.html" {
+  const content: string;
+  export default content;
+}

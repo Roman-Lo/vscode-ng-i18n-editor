@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import {EditorCommandHandler} from './command-handler';
 import {ExtensionSettingManager, IExtChangedEventSubscription} from "../modules/setting/ext-setting-manager";
-
+import html from '!!raw-loader!./index.html';
 
 export class EditorWebViewBuilder {
   private currentPanel: vscode.WebviewPanel | undefined = undefined;
@@ -103,10 +102,10 @@ export class EditorWebViewBuilder {
     ));
 
 
-    const htmlFilePath = vscode.Uri.file(path.join(ctx.extensionPath, 'out', 'editor', 'index.html'));
-    const html = fs.readFileSync(htmlFilePath.fsPath, 'utf8');
-
-    const parsedHTML = html
+    // const htmlFilePath = vscode.Uri.file(path.join(ctx.extensionPath, 'out', 'editor', 'index.html'));
+    // const html = fs.readFileSync(htmlFilePath.fsPath, 'utf8');
+    const htmlContent = html;
+    const parsedHTML = htmlContent
       .replace('#main#', mainJsSrc.toString())
       .replace('#vueJsSrc#', vueJsSrc.toString())
       .replace('#vueAntdCssSrc#', vueAntdCssSrc.toString())

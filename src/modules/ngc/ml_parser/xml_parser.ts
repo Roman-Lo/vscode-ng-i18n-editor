@@ -6,11 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import { TokenizeOptions } from './lexer';
-import { ParseTreeResult, Parser } from './parser';
-import { TagContentType, TagDefinition } from "./tags";
+import {TokenizeOptions} from './lexer';
+import {ParseTreeResult, Parser} from './parser';
+import {TagContentType, TagDefinition} from "./tags";
 
-export { ParseTreeResult, TreeError } from './parser';
+export {ParseTreeResult, TreeError} from './parser';
 
 
 export class XmlTagDefinition implements TagDefinition {
@@ -26,9 +26,13 @@ export class XmlTagDefinition implements TagDefinition {
   ignoreFirstLf: boolean = false;
   canSelfClose: boolean = true;
 
-  requireExtraParent(currentParent: string): boolean { return false; }
+  requireExtraParent(currentParent: string): boolean {
+    return false;
+  }
 
-  isClosedByChild(name: string): boolean { return false; }
+  isClosedByChild(name: string): boolean {
+    return false;
+  }
 }
 
 const _TAG_DEFINITION = new XmlTagDefinition();
@@ -39,7 +43,9 @@ export function getXmlTagDefinition(tagName: string): XmlTagDefinition {
 
 
 export class XmlParser extends Parser {
-  constructor() { super(getXmlTagDefinition); }
+  constructor() {
+    super(getXmlTagDefinition);
+  }
 
   parse(source: string, url: string, options?: TokenizeOptions): ParseTreeResult {
     return super.parse(source, url, options);

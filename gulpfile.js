@@ -1,4 +1,4 @@
-const { task, watch } = require('gulp');
+const {task, watch} = require('gulp');
 const path = require('path');
 const fs = require('fs');
 const cp = require('child_process');
@@ -11,7 +11,7 @@ var targetFile = __dirname + '/out/editor/index.html';
 task('watch', function (cb) {
   const dir = path.join(__dirname, '/out/editor');
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, {recursive: true});
   }
 
   const tsc = cp.spawn(path.resolve(__dirname, 'node_modules/.bin/', IS_WIN32 ? 'tsc.cmd' : 'tsc'), ['-watch', '-p', './'], {
@@ -33,7 +33,7 @@ task('watch', function (cb) {
     }
   });
 
-  watch(indexHtmlFile, { ignoreInitial: false, delay: 200 }, function (wcb) {
+  watch(indexHtmlFile, {ignoreInitial: false, delay: 200}, function (wcb) {
     fs.copyFile(indexHtmlFile, targetFile, (err) => {
       if (err) {
         console.warn(err);

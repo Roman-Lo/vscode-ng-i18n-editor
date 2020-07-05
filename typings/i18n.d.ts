@@ -1,7 +1,6 @@
-
 declare namespace i18n {
 
-  interface TranslationStateDict  {
+  interface TranslationStateDict {
     "new": 'N';
     "needs-translation": 'P';
     "translated": 'T';

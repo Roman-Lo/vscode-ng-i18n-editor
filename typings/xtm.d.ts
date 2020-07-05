@@ -1,5 +1,3 @@
-
-
 // xtm definitions
 declare namespace xtm {
 

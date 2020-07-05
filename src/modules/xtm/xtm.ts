@@ -1,6 +1,6 @@
 import * as mlAst from "../ngc/ml_parser/ast";
 import * as xml from "../ngc/i18n/serializers/xml_helper";
-import { XmlParser } from "../ngc/ml_parser/xml_parser";
+import {XmlParser} from "../ngc/ml_parser/xml_parser";
 
 const _VERSION = '1.0';
 
@@ -126,7 +126,7 @@ export class Xtm {
     );
 
     return xml.serialize([
-      new xml.Declaration({ version: '1.0', encoding: 'utf-8' }), new xml.CR(),
+      new xml.Declaration({version: '1.0', encoding: 'utf-8'}), new xml.CR(),
       xtm,
       new xml.CR()
     ]);

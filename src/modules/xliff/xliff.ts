@@ -1,10 +1,10 @@
-import { I18nError } from "../ngc/i18n/parse_util";
+import {I18nError} from "../ngc/i18n/parse_util";
 import * as mlAst from "../ngc/ml_parser/ast";
 import * as i18nAst from "../ngc/i18n/ast";
 import * as xml from "../ngc/i18n/serializers/xml_helper";
-import { XmlParser } from "../ngc/ml_parser/xml_parser";
-import { StringUtils } from "../common/string.util";
-import { I18nHtml } from "./i18n-html";
+import {XmlParser} from "../ngc/ml_parser/xml_parser";
+import {StringUtils} from "../common/string.util";
+import {I18nHtml} from "./i18n-html";
 
 const _VERSION = '1.2';
 const _XMLNS = 'urn:oasis:names:tc:xliff:document:1.2';
@@ -48,7 +48,7 @@ export class Xliff {
     const transUnits: xml.Node[] = [];
 
     items.forEach(item => {
-      const transUnit = new xml.Tag(_UNIT_TAG, { id: item.key, datatype: 'html' });
+      const transUnit = new xml.Tag(_UNIT_TAG, {id: item.key, datatype: 'html'});
 
       const sourceTextNode = new xml.Text('');
       sourceTextNode.value = item.source;
@@ -72,15 +72,15 @@ export class Xliff {
       if (!simplifyMode) {
         let contextTags: xml.Node[] = [];
         item.contextGroups.forEach((ctxGroup) => {
-          let contextGroupTag = new xml.Tag(_CONTEXT_GROUP_TAG, { purpose: 'location' });
+          let contextGroupTag = new xml.Tag(_CONTEXT_GROUP_TAG, {purpose: 'location'});
           contextGroupTag.children.push(
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'sourcefile' }, [new xml.Text(ctxGroup.sourceFile)]
+              _CONTEXT_TAG, {'context-type': 'sourcefile'}, [new xml.Text(ctxGroup.sourceFile)]
             ),
             new xml.CR(10),
             new xml.Tag(
-              _CONTEXT_TAG, { 'context-type': 'linenumber' }, [new xml.Text(`${ctxGroup.lineNumber}`)]
+              _CONTEXT_TAG, {'context-type': 'linenumber'}, [new xml.Text(`${ctxGroup.lineNumber}`)]
             ),
             new xml.CR(8),
           );
@@ -93,13 +93,13 @@ export class Xliff {
           transUnit.children.push(
             new xml.CR(8),
             new xml.Tag(
-              _NOTE_TAG, { priority: '1', from: 'description' }, [new xml.Text(item.description)]));
+              _NOTE_TAG, {priority: '1', from: 'description'}, [new xml.Text(item.description)]));
         }
 
         if (item.meaning) {
           transUnit.children.push(
             new xml.CR(8),
-            new xml.Tag(_NOTE_TAG, { priority: '1', from: 'meaning' }, [new xml.Text(item.meaning)]));
+            new xml.Tag(_NOTE_TAG, {priority: '1', from: 'meaning'}, [new xml.Text(item.meaning)]));
         }
       }
 
@@ -119,16 +119,16 @@ export class Xliff {
 
     const file = new xml.Tag(
       'file', {
-      ...fileAttr,
-      datatype: 'plaintext',
-      original: 'ng2.template',
-    },
+        ...fileAttr,
+        datatype: 'plaintext',
+        original: 'ng2.template',
+      },
       [new xml.CR(4), body, new xml.CR(2)]);
     const xliff = new xml.Tag(
-      'xliff', { version: _VERSION, xmlns: _XMLNS }, [new xml.CR(2), file, new xml.CR()]);
+      'xliff', {version: _VERSION, xmlns: _XMLNS}, [new xml.CR(2), file, new xml.CR()]);
 
     return xml.serialize([
-      new xml.Declaration({ version: '1.0', encoding: 'utf-8' }), new xml.CR(), xliff, new xml.CR()
+      new xml.Declaration({version: '1.0', encoding: 'utf-8'}), new xml.CR(), xliff, new xml.CR()
     ]);
   }
 
@@ -140,7 +140,7 @@ export class Xliff {
     if (!ignoreErrors && errors.length > 0) {
       throw new Error(`xliff parse errors:\n${errors.join('\n')}`);
     }
-    return { sourceLocale, targetLocale, transUnitByMsgId, errors: errors.length > 0 ? errors : null };
+    return {sourceLocale, targetLocale, transUnitByMsgId, errors: errors.length > 0 ? errors : null};
   }
 
   static loadFileLocaleInfo(content: string, url: string) {

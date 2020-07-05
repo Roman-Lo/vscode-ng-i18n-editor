@@ -39,17 +39,19 @@ export enum TokenType {
 
 export class Token {
   constructor(
-      public type: TokenType|null, public parts: string[], public sourceSpan: ParseSourceSpan) {}
+    public type: TokenType | null, public parts: string[], public sourceSpan: ParseSourceSpan) {
+  }
 }
 
 export class TokenError extends ParseError {
-  constructor(errorMsg: string, public tokenType: TokenType|null, span: ParseSourceSpan) {
+  constructor(errorMsg: string, public tokenType: TokenType | null, span: ParseSourceSpan) {
     super(span, errorMsg);
   }
 }
 
 export class TokenizeResult {
-  constructor(public tokens: Token[], public errors: TokenError[]) {}
+  constructor(public tokens: Token[], public errors: TokenError[]) {
+  }
 }
 
 export interface LexerRange {
@@ -105,8 +107,8 @@ export interface TokenizeOptions {
 }
 
 export function tokenize(
-    source: string, url: string, getTagDefinition: (tagName: string) => TagDefinition,
-    options: TokenizeOptions = {}): TokenizeResult {
+  source: string, url: string, getTagDefinition: (tagName: string) => TagDefinition,
+  options: TokenizeOptions = {}): TokenizeResult {
   return new MlTokenizer(new ParseSourceFile(source, url), getTagDefinition, options).tokenize();
 }
 
@@ -122,7 +124,8 @@ function _unknownEntityErrorMsg(entitySrc: string): string {
 }
 
 class MlControlFlowError {
-  constructor(public error: TokenError) {}
+  constructor(public error: TokenError) {
+  }
 }
 
 // See http://www.w3.org/TR/html51/syntax.html#writing
@@ -130,9 +133,9 @@ class MlTokenizer {
   private _cursor: CharacterCursor;
   private _tokenizeIcu: boolean;
   private _interpolationConfig: InterpolationConfig;
-  private _leadingTriviaCodePoints: number[]|undefined;
-  private _currentTokenStart: CharacterCursor|null = null;
-  private _currentTokenType: TokenType|null = null;
+  private _leadingTriviaCodePoints: number[] | undefined;
+  private _currentTokenStart: CharacterCursor | null = null;
+  private _currentTokenType: TokenType | null = null;
   private _expansionCaseStack: TokenType[] = [];
   private _inInterpolation: boolean = false;
   tokens: Token[] = [];
@@ -144,16 +147,16 @@ class MlTokenizer {
    * @param options Configuration of the tokenization.
    */
   constructor(
-      _file: ParseSourceFile, private _getTagDefinition: (tagName: string) => TagDefinition,
-      options: TokenizeOptions) {
+    _file: ParseSourceFile, private _getTagDefinition: (tagName: string) => TagDefinition,
+    options: TokenizeOptions) {
     this._tokenizeIcu = options.tokenizeExpansionForms || false;
     this._interpolationConfig = options.interpolationConfig || DEFAULT_INTERPOLATION_CONFIG;
     this._leadingTriviaCodePoints =
-        options.leadingTriviaChars && options.leadingTriviaChars.map(c => c.codePointAt(0) || 0);
+      options.leadingTriviaChars && options.leadingTriviaChars.map(c => c.codePointAt(0) || 0);
     const range =
-        options.range || {endPos: _file.content.length, startPos: 0, startLine: 0, startCol: 0};
+      options.range || {endPos: _file.content.length, startPos: 0, startLine: 0, startCol: 0};
     this._cursor = options.escapedString ? new EscapedCharacterCursor(_file, range) :
-                                           new PlainCharacterCursor(_file, range);
+      new PlainCharacterCursor(_file, range);
     try {
       this._cursor.init();
     } catch (e) {
@@ -237,17 +240,17 @@ class MlTokenizer {
   private _endToken(parts: string[], end = this._cursor.clone()): Token {
     if (this._currentTokenStart === null) {
       throw new TokenError(
-          'Programming error - attempted to end a token when there was no start to the token',
-          this._currentTokenType, this._cursor.getSpan(end));
+        'Programming error - attempted to end a token when there was no start to the token',
+        this._currentTokenType, this._cursor.getSpan(end));
     }
     if (this._currentTokenType === null) {
       throw new TokenError(
-          'Programming error - attempted to end a token which has no token type', null,
-          this._cursor.getSpan(this._currentTokenStart));
+        'Programming error - attempted to end a token which has no token type', null,
+        this._cursor.getSpan(this._currentTokenStart));
     }
     const token = new Token(
-        this._currentTokenType, parts,
-        this._cursor.getSpan(this._currentTokenStart, this._leadingTriviaCodePoints));
+      this._currentTokenType, parts,
+      this._cursor.getSpan(this._currentTokenStart, this._leadingTriviaCodePoints));
     this.tokens.push(token);
     this._currentTokenStart = null;
     this._currentTokenType = null;
@@ -295,7 +298,7 @@ class MlTokenizer {
     const location = this._cursor.clone();
     if (!this._attemptCharCode(charCode)) {
       throw this._createError(
-          _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(location));
+        _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(location));
     }
   }
 
@@ -329,7 +332,7 @@ class MlTokenizer {
     const location = this._cursor.clone();
     if (!this._attemptStr(chars)) {
       throw this._createError(
-          _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(location));
+        _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(location));
     }
   }
 
@@ -345,7 +348,7 @@ class MlTokenizer {
     const end = this._cursor.clone();
     if (end.diff(start) < len) {
       throw this._createError(
-          _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(start));
+        _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(start));
     }
   }
 
@@ -376,7 +379,7 @@ class MlTokenizer {
       this._attemptCharCodeUntilFn(isDigitEntityEnd);
       if (this._cursor.peek() != chars.$SEMICOLON) {
         throw this._createError(
-            _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan());
+          _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan());
       }
       const strNum = this._cursor.getChars(codeStart);
       this._cursor.advance();
@@ -385,7 +388,7 @@ class MlTokenizer {
         return String.fromCharCode(charCode);
       } catch {
         throw this._createError(
-            _unknownEntityErrorMsg(this._cursor.getChars(start)), this._cursor.getSpan());
+          _unknownEntityErrorMsg(this._cursor.getChars(start)), this._cursor.getSpan());
       }
     } else {
       const nameStart = this._cursor.clone();
@@ -470,13 +473,13 @@ class MlTokenizer {
   private _consumeTagOpen(start: CharacterCursor) {
     let tagName: string;
     let prefix: string;
-    let openTagToken: Token|undefined;
+    let openTagToken: Token | undefined;
     let tokensBeforeTagOpen = this.tokens.length;
     const innerStart = this._cursor.clone();
     try {
       if (!chars.isAsciiLetter(this._cursor.peek())) {
         throw this._createError(
-            _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(start));
+          _unexpectedCharacterErrorMsg(this._cursor.peek()), this._cursor.getSpan(start));
       }
 
       openTagToken = this._consumeTagOpenStart(start);
@@ -577,7 +580,7 @@ class MlTokenizer {
 
   private _consumeTagOpenEnd() {
     const tokenType =
-        this._attemptCharCode(chars.$SLASH) ? TokenType.TAG_OPEN_END_VOID : TokenType.TAG_OPEN_END;
+      this._attemptCharCode(chars.$SLASH) ? TokenType.TAG_OPEN_END_VOID : TokenType.TAG_OPEN_END;
     this._beginToken(tokenType);
     this._requireCharCode(chars.$GT);
     this._endToken([]);
@@ -653,8 +656,8 @@ class MlTokenizer {
         parts.push(this._interpolationConfig.start);
         this._inInterpolation = true;
       } else if (
-          this._interpolationConfig && this._inInterpolation &&
-          this._attemptStr(this._interpolationConfig.end)) {
+        this._interpolationConfig && this._inInterpolation &&
+        this._attemptStr(this._interpolationConfig.end)) {
         parts.push(this._interpolationConfig.end);
         this._inInterpolation = false;
       } else {
@@ -693,14 +696,14 @@ class MlTokenizer {
 
   private _isInExpansionCase(): boolean {
     return this._expansionCaseStack.length > 0 &&
-        this._expansionCaseStack[this._expansionCaseStack.length - 1] ===
-        TokenType.EXPANSION_CASE_EXP_START;
+      this._expansionCaseStack[this._expansionCaseStack.length - 1] ===
+      TokenType.EXPANSION_CASE_EXP_START;
   }
 
   private _isInExpansionForm(): boolean {
     return this._expansionCaseStack.length > 0 &&
-        this._expansionCaseStack[this._expansionCaseStack.length - 1] ===
-        TokenType.EXPANSION_FORM_START;
+      this._expansionCaseStack[this._expansionCaseStack.length - 1] ===
+      TokenType.EXPANSION_FORM_START;
   }
 
   private isExpansionFormStart(): boolean {
@@ -723,12 +726,12 @@ function isNotWhitespace(code: number): boolean {
 
 function isNameEnd(code: number): boolean {
   return chars.isWhitespace(code) || code === chars.$GT || code === chars.$SLASH ||
-      code === chars.$SQ || code === chars.$DQ || code === chars.$EQ;
+    code === chars.$SQ || code === chars.$DQ || code === chars.$EQ;
 }
 
 function isPrefixEnd(code: number): boolean {
   return (code < chars.$a || chars.$z < code) && (code < chars.$A || chars.$Z < code) &&
-      (code < chars.$0 || code > chars.$9);
+    (code < chars.$0 || code > chars.$9);
 }
 
 function isDigitEntityEnd(code: number): boolean {
@@ -753,7 +756,7 @@ function toUpperCaseCharCode(code: number): number {
 
 function mergeTextTokens(srcTokens: Token[]): Token[] {
   const dstTokens: Token[] = [];
-  let lastDstToken: Token|undefined = undefined;
+  let lastDstToken: Token | undefined = undefined;
   for (let i = 0; i < srcTokens.length; i++) {
     const token = srcTokens[i];
     if (lastDstToken && lastDstToken.type == TokenType.TEXT && token.type == TokenType.TEXT) {
@@ -777,18 +780,25 @@ function mergeTextTokens(srcTokens: Token[]): Token[] {
 interface CharacterCursor {
   /** Initialize the cursor. */
   init(): void;
+
   /** The parsed character at the current cursor position. */
   peek(): number;
+
   /** Advance the cursor by one parsed character. */
   advance(): void;
+
   /** Get a span from the marked start point to the current point. */
   getSpan(start?: this, leadingTriviaCodePoints?: number[]): ParseSourceSpan;
+
   /** Get the parsed characters from the marked start point to the current point. */
   getChars(start: this): string;
+
   /** The number of characters left before the end of the cursor. */
   charsLeft(): number;
+
   /** The number of characters between `this` cursor and `other` cursor. */
   diff(other: this): number;
+
   /** Make a copy of this cursor */
   clone(): CharacterCursor;
 }
@@ -808,7 +818,7 @@ class PlainCharacterCursor implements CharacterCursor {
 
   constructor(fileOrCursor: PlainCharacterCursor);
   constructor(fileOrCursor: ParseSourceFile, range: LexerRange);
-  constructor(fileOrCursor: ParseSourceFile|PlainCharacterCursor, range?: LexerRange) {
+  constructor(fileOrCursor: ParseSourceFile | PlainCharacterCursor, range?: LexerRange) {
     if (fileOrCursor instanceof PlainCharacterCursor) {
       this.file = fileOrCursor.file;
       this.input = fileOrCursor.input;
@@ -817,7 +827,7 @@ class PlainCharacterCursor implements CharacterCursor {
     } else {
       if (!range) {
         throw new Error(
-            'Programming error: the range argument must be provided with a file argument.');
+          'Programming error: the range argument must be provided with a file argument.');
       }
       this.file = fileOrCursor;
       this.input = fileOrCursor.content;
@@ -831,15 +841,29 @@ class PlainCharacterCursor implements CharacterCursor {
     }
   }
 
-  clone(): PlainCharacterCursor { return new PlainCharacterCursor(this); }
+  clone(): PlainCharacterCursor {
+    return new PlainCharacterCursor(this);
+  }
 
-  peek() { return this.state.peek; }
-  charsLeft() { return this.end - this.state.offset; }
-  diff(other: this) { return this.state.offset - other.state.offset; }
+  peek() {
+    return this.state.peek;
+  }
 
-  advance(): void { this.advanceState(this.state); }
+  charsLeft() {
+    return this.end - this.state.offset;
+  }
 
-  init(): void { this.updatePeek(this.state); }
+  diff(other: this) {
+    return this.state.offset - other.state.offset;
+  }
+
+  advance(): void {
+    this.advanceState(this.state);
+  }
+
+  init(): void {
+    this.updatePeek(this.state);
+  }
 
   getSpan(start?: this, leadingTriviaCodePoints?: number[]): ParseSourceSpan {
     start = start || this;
@@ -850,15 +874,17 @@ class PlainCharacterCursor implements CharacterCursor {
       }
     }
     return new ParseSourceSpan(
-        new ParseLocation(start.file, start.state.offset, start.state.line, start.state.column),
-        new ParseLocation(this.file, this.state.offset, this.state.line, this.state.column));
+      new ParseLocation(start.file, start.state.offset, start.state.line, start.state.column),
+      new ParseLocation(this.file, this.state.offset, this.state.line, this.state.column));
   }
 
   getChars(start: this): string {
     return this.input.substring(start.state.offset, this.state.offset);
   }
 
-  charAt(pos: number): number { return this.input.charCodeAt(pos); }
+  charAt(pos: number): number {
+    return this.input.charCodeAt(pos);
+  }
 
   protected advanceState(state: CursorState) {
     if (state.offset >= this.end) {
@@ -886,7 +912,7 @@ class EscapedCharacterCursor extends PlainCharacterCursor {
 
   constructor(fileOrCursor: EscapedCharacterCursor);
   constructor(fileOrCursor: ParseSourceFile, range: LexerRange);
-  constructor(fileOrCursor: ParseSourceFile|EscapedCharacterCursor, range?: LexerRange) {
+  constructor(fileOrCursor: ParseSourceFile | EscapedCharacterCursor, range?: LexerRange) {
     if (fileOrCursor instanceof EscapedCharacterCursor) {
       super(fileOrCursor);
       this.internalState = {...fileOrCursor.internalState};
@@ -907,7 +933,9 @@ class EscapedCharacterCursor extends PlainCharacterCursor {
     this.processEscapeSequence();
   }
 
-  clone(): EscapedCharacterCursor { return new EscapedCharacterCursor(this); }
+  clone(): EscapedCharacterCursor {
+    return new EscapedCharacterCursor(this);
+  }
 
   getChars(start: this): string {
     const cursor = start.clone();
@@ -973,17 +1001,13 @@ class EscapedCharacterCursor extends PlainCharacterCursor {
           this.advanceState(this.internalState);
           this.state.peek = this.decodeHexDigits(digitStart, 4);
         }
-      }
-
-      else if (peek() === chars.$x) {
+      } else if (peek() === chars.$x) {
         // Hex char code, e.g. `\x2F`
         this.advanceState(this.internalState);  // advance past the `x` char
         const digitStart = this.clone();
         this.advanceState(this.internalState);
         this.state.peek = this.decodeHexDigits(digitStart, 2);
-      }
-
-      else if (chars.isOctalDigit(peek())) {
+      } else if (chars.isOctalDigit(peek())) {
         // Octal char code, e.g. `\012`,
         let octal = '';
         let length = 0;
@@ -997,15 +1021,11 @@ class EscapedCharacterCursor extends PlainCharacterCursor {
         this.state.peek = parseInt(octal, 8);
         // Backup one char
         this.internalState = previous.internalState;
-      }
-
-      else if (chars.isNewLine(this.internalState.peek)) {
+      } else if (chars.isNewLine(this.internalState.peek)) {
         // Line continuation `\` followed by a new line
         this.advanceState(this.internalState);  // advance over the newline
         this.state = this.internalState;
-      }
-
-      else {
+      } else {
         // If none of the `if` blocks were executed then we just have an escaped normal character.
         // In that case we just, effectively, skip the backslash from the character.
         this.state.peek = this.internalState.peek;
@@ -1026,5 +1046,6 @@ class EscapedCharacterCursor extends PlainCharacterCursor {
 }
 
 export class CursorError {
-  constructor(public msg: string, public cursor: CharacterCursor) {}
+  constructor(public msg: string, public cursor: CharacterCursor) {
+  }
 }

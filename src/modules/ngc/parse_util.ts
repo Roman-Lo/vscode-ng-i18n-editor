@@ -3,7 +3,8 @@ import * as chars from './chars';
 export class ParseLocation {
   constructor(
     public file: ParseSourceFile, public offset: number, public line: number,
-    public col: number) { }
+    public col: number) {
+  }
 
   toString(): string {
     return this.offset != null ? `${this.file.url}@${this.line}:${this.col}` : this.file.url;
@@ -88,12 +89,14 @@ export class ParseLocation {
 }
 
 export class ParseSourceFile {
-  constructor(public content: string, public url: string) { }
+  constructor(public content: string, public url: string) {
+  }
 }
 
 export class ParseSourceSpan {
   constructor(
-    public start: ParseLocation, public end: ParseLocation, public details: string | null = null) { }
+    public start: ParseLocation, public end: ParseLocation, public details: string | null = null) {
+  }
 
   toString(): string {
     return this.start.file.content.substring(this.start.offset, this.end.offset);
@@ -111,7 +114,8 @@ export enum ParseErrorLevel {
 export class ParseError {
   constructor(
     public span: ParseSourceSpan, public msg: string,
-    public level: ParseErrorLevel = ParseErrorLevel.ERROR) { }
+    public level: ParseErrorLevel = ParseErrorLevel.ERROR) {
+  }
 
   contextualMessage(): string {
     const ctx = this.span.start.getContext(100, 3);

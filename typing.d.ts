@@ -27,6 +27,23 @@ interface ITranslationMemorySetting {
   uri: string;
 }
 
+interface II18nEditorTaskConfig {
+  /**
+   * the frequency of task checking
+   * (default 5 seconds)
+   * @type {number}
+   * @memberof I18nEditorTaskConfig
+   */
+  intervalSeconds?: number;
+  /**
+   * the maximum command size for each task execution
+   * (default 10)
+   * @type {number}
+   * @memberof I18nEditorTaskConfig
+   */
+  itemEachPack?: number;
+}
+
 interface II18nEditorSetting {
   /**
    * defaults: "blur"
@@ -41,6 +58,8 @@ interface II18nEditorSetting {
    * @memberof II18nEditorSetting
    */
   messageLocations: string[];
+
+  taskConfig?: II18nEditorTaskConfig | null;
 }
 
 /**

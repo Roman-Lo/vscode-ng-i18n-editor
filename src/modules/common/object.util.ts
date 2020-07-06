@@ -24,12 +24,19 @@ export class ObjectUtils {
   static diff<T extends Object>(a: T, b: T): {
     path: string, a: any, b: any
   }[] {
-    const typeofa: string = typeof a;
-    if (typeofa !== typeof b) {
-      throw new Error(`cannot execute diff for different types of object`);
+    if (a === b) {
+      return [];
     }
-    if (typeofa !== 'object' || a instanceof Date) {
-      throw new Error(`cannot execute diff for non-object values`);
+    const aIsNullOrUndefined = a === undefined || a === null;
+    const bIsNullOrUndefined = b === undefined || b === null;
+    if (!aIsNullOrUndefined && !bIsNullOrUndefined) {
+      const typeofa: string = typeof a;
+      if (typeofa !== typeof b) {
+        throw new Error(`cannot execute diff for different types of object`);
+      }
+      if (typeofa !== 'object' || a instanceof Date) {
+        throw new Error(`cannot execute diff for non-object values`);
+      }
     }
     const aFlattened = ObjectUtils.flatten(ObjectUtils.deepClone(a));
     const bFlattened = ObjectUtils.flatten(ObjectUtils.deepClone(b));

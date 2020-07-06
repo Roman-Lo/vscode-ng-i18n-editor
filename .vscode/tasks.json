@@ -2,21 +2,35 @@
 // for the documentation about the tasks.json format
 {
   "version": "2.0.0",
-  "tasks": [
-    {
-      "type": "npm",
-      "script": "watch",
-      "problemMatcher": [
-        "$tsc-watch"
-      ],
-      "isBackground": true,
-      "presentation": {
-        "reveal": "never"
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+  "tasks": [{
+    "type": "npm",
+    "script": "webpack-dev-watch",
+    "problemMatcher": [
+      {
+        "base": "$ts-webpack-watch",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": {
+            "regexp": "webpack is watching the files..."
+          },
+          "endsPattern": {
+            "regexp": "Hash: [a-z0-9]+"
+          }
+        }
+      }      
+    ],
+    "isBackground": true,
+    "presentation": {
+      "echo": true,
+      "reveal": "never",
+      "focus": false,
+      "panel": "shared",
+      "showReuseMessage": true,
+      "clear": false
+    },
+    "group": {
+      "kind": "build",
+      "isDefault": true
     }
-  ]
+  }]
 }

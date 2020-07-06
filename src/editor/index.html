@@ -15,7 +15,7 @@
     }
 
     [data-page-section] {
-      margin-bottom: 10px;
+      margin-bottom: 10px; 
     }
 
     [data-page-section]:last-child {
@@ -496,7 +496,6 @@
       width: '50%'
     }
   ];
-  var mockDataModuleName = './mock-data';
   var isInVsCodeIDE = typeof acquireVsCodeApi === 'function';
   // var vscode = null;
   // try {
@@ -508,10 +507,10 @@
   let mainJsLocation = '#main#';
   let mockDataJsLocation = '#mockData#';
   if (mainJsLocation === '#main#') {
-    mainJsLocation = './main.js';
+    mainJsLocation = '../../dist/main.js';
   }
   if (mockDataJsLocation === '#mockData#') {
-    mockDataJsLocation = mockDataModuleName + '.js';
+    mockDataJsLocation = '../../dist/mock-data.js';
   }
   const localResources = {
     // localCss: '../../out/i18nTranslateWebView/main.css',
@@ -555,20 +554,16 @@
           require.modules['vue'] = {default: Vue};
           require.modules['ant-design-vue'] = antd;
         }
-
-
         var startApp = function (mockData) {
-          require.modules[mockDataModuleName] = mockData;
           loadScriptOrStyle('script', mainJsLocation, function () {
-            bootstrap();
+            bootstrap(mockData);
           });
         }
-
         if (isInVsCodeIDE) {
-          startApp({'MOCK_DATA': null});
+          startApp(null);
         } else {
           loadScriptOrStyle('script', mockDataJsLocation, () => {
-            startApp({'MOCK_DATA': exports.MOCK_DATA});
+            startApp(window.MOCK_DATA);
           });
         }
       });

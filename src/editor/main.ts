@@ -1,7 +1,6 @@
 import * as antd from 'ant-design-vue';
-import {Webview} from 'vscode';
+import { Webview } from 'vscode';
 import Vue from 'vue';
-import {MOCK_DATA} from './mock-data';
 
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
@@ -14,23 +13,20 @@ try {
 } catch (e) {
   isInVsCodeIDE = false;
 }
-
-if (!isInVsCodeIDE) {
-  console.log(`using mock data:`, MOCK_DATA);
-  if (MOCK_DATA) {
-    MOCK_DATA.transUnitTable.columns = transUnitTableColumns;
-    MOCK_DATA.transUnitTable.transUnits.forEach(x => {
-      x.__signoff_hovered = false;
-      if (x.target && x.target.length > 0 && x.state !== 'signed-off') {
-        x.state = 'translated';
-      }
-    });
+export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
+  if (!isInVsCodeIDE) {
+    console.log(`using mock data:`, MOCK_DATA);
+    if (MOCK_DATA) {
+      MOCK_DATA.transUnitTable.columns = transUnitTableColumns;
+      MOCK_DATA.transUnitTable.transUnits.forEach(x => {
+        x.__signoff_hovered = false;
+        if (x.target && x.target.length > 0 && x.state !== 'signed-off') {
+          x.state = 'translated';
+        }
+      });
+    }
   }
-} else {
-
-}
-
-export function bootstrap() {
+  
   console.log('loaded!');
 
   let _transUnits: i18nWebView.ITransUnitView[] = [];
@@ -115,9 +111,9 @@ export function bootstrap() {
 
     computed: {
       tPercent: () => {
-        const {transUnitTable, statusBar} = pageData;
+        const { transUnitTable, statusBar } = pageData;
         if (transUnitTable.loaded && statusBar.counters) {
-          const {needHandleCount, totalUnitCount} = statusBar.counters;
+          const { needHandleCount, totalUnitCount } = statusBar.counters;
           const finishedAmount = totalUnitCount - needHandleCount;
           const value = Math.floor(100 * finishedAmount / totalUnitCount);
           return value;
@@ -125,13 +121,13 @@ export function bootstrap() {
         return 0;
       },
       pageOffset: () => {
-        const {pageNum, pageSize} = pageData.pagination;
+        const { pageNum, pageSize } = pageData.pagination;
         return Math.max(0, pageSize * (pageNum - 1));
       },
       hasTranslated: () => {
-        const {transUnitTable, statusBar} = pageData;
+        const { transUnitTable, statusBar } = pageData;
         if (transUnitTable.loaded && statusBar.counters) {
-          const {needHandleCount, totalUnitCount, signedOffUnitCount} = statusBar.counters;
+          const { needHandleCount, totalUnitCount, signedOffUnitCount } = statusBar.counters;
           return totalUnitCount > (needHandleCount + signedOffUnitCount);
         }
         return false;
@@ -210,7 +206,7 @@ export function bootstrap() {
 
       // editor events
       startTranslation(record: i18nWebView.ITransUnitView, $event: Event) {
-        const {editingUnit: curEditState} = pageData.transUnitTable;
+        const { editingUnit: curEditState } = pageData.transUnitTable;
         if (curEditState) {
           if (curEditState.key === record.key) {
             return;
@@ -260,7 +256,7 @@ export function bootstrap() {
         console.log(`start edit trans unit: ${record.key}`);
       },
       editorBlur(record: i18nWebView.ITransUnitView, $event: FocusEvent) {
-        const {editingUnit: curEditState} = pageData.transUnitTable;
+        const { editingUnit: curEditState } = pageData.transUnitTable;
         if ((curEditState as any).__skip_blur) {
           (curEditState as any).__skip_blur = false;
           return;
@@ -305,13 +301,13 @@ export function bootstrap() {
         }
       },
       tagSelected(option: { value: string }, prefix: string) {
-        const {editingUnit: curEditState} = pageData.transUnitTable;
+        const { editingUnit: curEditState } = pageData.transUnitTable;
         if (curEditState) {
           (curEditState as any).__skip_blur = true; // mark skip blur
         }
       },
       endTranslation(record: i18nWebView.ITransUnitView, $event: Event, needUpdate: boolean = true): boolean {
-        const {editingUnit: curEditState} = pageData.transUnitTable;
+        const { editingUnit: curEditState } = pageData.transUnitTable;
         if (!curEditState) {
           return true;
         }
@@ -437,7 +433,7 @@ export function bootstrap() {
         app._syncStatusBarProcessState();
       }, 500),
       _syncStatusBarProcessState() {
-        const {process} = pageData.statusBar;
+        const { process } = pageData.statusBar;
         let hashes = Object.keys(process.commandByHash);
         let finished = false;
         let hasError = false;
@@ -468,7 +464,7 @@ export function bootstrap() {
         app._flushCounters();
       }, 500),
       _flushCounters() {
-        const {counters} = pageData.statusBar;
+        const { counters } = pageData.statusBar;
         const totalAmount = _transUnits.length;
         let needHandleAmount = 0;
         let signedOffCount = 0;
@@ -522,7 +518,7 @@ export function bootstrap() {
         }
       },
       updateTransUnit(transUnit: i18nWebView.ITransUnitView) {
-        const {transUnitTable} = pageData;
+        const { transUnitTable } = pageData;
         if (transUnitTable.sourceXliffFile && transUnitTable.sourceLocale) {
           let cmdBase = generateCommandBase();
           transUnit._updating = true;
@@ -540,11 +536,11 @@ export function bootstrap() {
           if (!isInVsCodeIDE) {
             window.setTimeout(() => {
               if (cmdBase.hash === transUnit._commandHash) {
-                const {counters} = pageData.statusBar;
+                const { counters } = pageData.statusBar;
                 transUnit._updating = false;
                 transUnit._locked = false;
               }
-              const {process} = pageData.statusBar;
+              const { process } = pageData.statusBar;
               if (process.commandByHash[cmdBase.hash]) {
                 delete process.commandByHash[cmdBase.hash];
                 this._debounceSyncStatusBarProcessState();
@@ -652,8 +648,8 @@ export function bootstrap() {
       app._debounceFlushCounters();
     },
     'trans-unit-omitted': (data: i18nWebView.I18nTranslateWebViewCommandMap['trans-unit-omitted']) => {
-      const {commandHash, transUnitKey} = data;
-      const {commandByHash} = pageData.statusBar.process;
+      const { commandHash, transUnitKey } = data;
+      const { commandByHash } = pageData.statusBar.process;
       const cmdRecord = commandByHash[commandHash];
       if (cmdRecord) {
         const cmd = cmdRecord.cmd as i18nWebView.TransUnitUpdateCommand;
@@ -785,7 +781,7 @@ export function bootstrap() {
         }
       }
     });
-    return {pairs, standalones};
+    return { pairs, standalones };
   }
 
   function buildTagMetaArray(analyzeResult: i18nWebView.IWebViewTagAnalyzeResult): i18nWebView.IWebViewEditorTagMeta[] {
@@ -804,7 +800,7 @@ export function bootstrap() {
     }
     if (analyzeResult.standalones) {
       for (const tagName in analyzeResult.standalones) {
-        result.push({tag: tagName, count: 1});
+        result.push({ tag: tagName, count: 1 });
       }
     }
     return result;
@@ -833,7 +829,7 @@ export function bootstrap() {
       }
     }
     const availableTags = Object.keys(metaDict).map<i18nWebView.IWebViewEditorTagMeta>(tag => {
-      return {tag, count: metaDict[tag]};
+      return { tag, count: metaDict[tag] };
     }).filter(m => m.count > 0);
     return availableTags;
   }
@@ -889,8 +885,8 @@ export function bootstrap() {
       isValid = false;
     }
 
-    const {process} = pageData.statusBar;
-    const {commandHash} = data;
+    const { process } = pageData.statusBar;
+    const { commandHash } = data;
 
     if (process.commandByHash[commandHash]) {
       if (isValid) {

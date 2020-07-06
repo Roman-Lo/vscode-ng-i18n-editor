@@ -60,10 +60,20 @@ export class EditorCommandHandler implements vscode.Disposable {
       .map((val, idx) => idx === 0 ? val : `${val[0].toUpperCase()}${val.substring(1)}`)
       .join('');
     const handler = (this as any)[handlerName] as Function;
+    const callbackCmd = (EditorCommandHandler.commandResultMap as any)[command];
     if (typeof handler === 'function') {
-      handler.apply(this, [message]);
+      try {
+        handler.apply(this, [message]);
+      } catch (e) {
+        const errMsg = `handler execution failed: ${e}`;
+        if (callbackCmd) {
+          const error = this.buildErrorCallbackResult(command, message, errMsg, -2);
+          this.sendMessage(callbackCmd, error as any);
+        } else {
+          throw new Error(errMsg);
+        }
+      }
     } else {
-      const callbackCmd = (EditorCommandHandler.commandResultMap as any)[command];
       if (callbackCmd) {
         const errorMsg = `handler not found for command: ${command}, expected: ${handlerName}`;
         const error = this.buildErrorCallbackResult(command, message, errorMsg, -1);

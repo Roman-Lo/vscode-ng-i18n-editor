@@ -1,9 +1,10 @@
 import * as mlAst from "../ngc/ml_parser/ast";
 import * as xml from "../ngc/i18n/serializers/xml_helper";
-import {XmlParser} from "../ngc/ml_parser/xml_parser";
+import { XmlParser } from "../ngc/ml_parser/xml_parser";
 
 const _VERSION = '1.0';
 
+const _XTM_TAG = 'xtm';
 const _BODY_TAG = 'body';
 const _MEMORY_CELL_TAG = 'mc';
 const _IDENTIFIER_TAG = 'identifier';
@@ -113,7 +114,7 @@ export class Xtm {
     const body = new xml.Tag(_BODY_TAG, {}, [
       ...memoryNodes, new xml.CR(2)
     ]);
-    const xtm = new xml.Tag('xtm',
+    const xtm = new xml.Tag(_XTM_TAG,
       {
         [_VERSION_ATTR]: _VERSION,
         [_SOURCE_LOCALE_ATTR]: sourceLocale,
@@ -126,7 +127,7 @@ export class Xtm {
     );
 
     return xml.serialize([
-      new xml.Declaration({version: '1.0', encoding: 'utf-8'}), new xml.CR(),
+      new xml.Declaration({ version: '1.0', encoding: 'utf-8' }), new xml.CR(),
       xtm,
       new xml.CR()
     ]);
@@ -146,6 +147,11 @@ export class Xtm {
 
 
 class XtmParser implements mlAst.Visitor {
+
+  private static readonly version = "1.0";
+
+  private _xtmSourceLocale!: string;
+  private _xtmVersion!: string;
   private _xtmTMCells!: xtm.IMemoryCell[];
   private _xtmTMCell!: xtm.IMemoryCell;
   private _xtmLocaleTargets!: xtm.ILocaleTarget[];
@@ -153,16 +159,23 @@ class XtmParser implements mlAst.Visitor {
 
   parse(xtm: string, url: string): {
     memories: xtm.IMemoryCell[],
-    errors: []
+    sourceLocale: string,
+    errors: string[]
   } {
-    let xtmFile: xtm.IXTMFile = {} as any;
-
     this._xtmTMCells = [];
+    let errors: string[] = [];
     const xml = new XmlParser().parse(xtm, url);
     mlAst.visitAll(this, xml.rootNodes, null);
+    if (this._xtmVersion !== XtmParser.version) {
+      errors.push(`xtm version not match. actual: ${this._xtmVersion}, expected: ${XtmParser.version}`);
+    }
+    if (!this._xtmSourceLocale) {
+      errors.push(`undefine source locale`);
+    }
     return {
       memories: this._xtmTMCells,
-      errors: []
+      sourceLocale: this._xtmSourceLocale!,
+      errors
     };
   }
 
@@ -229,6 +242,21 @@ class XtmParser implements mlAst.Visitor {
         } else {
           this._xtmTMCell.sourceIdentifier = idfr;
         }
+        break;
+
+      case _XTM_TAG:
+        element.attrs.forEach(attr => {
+          switch (attr.name) {
+            case _VERSION_ATTR:
+              this._xtmVersion = attr.value.trim();
+              break;
+            case _SOURCE_LOCALE_ATTR:
+              this._xtmSourceLocale = attr.value.trim();
+              break;
+            default:
+              break;
+          }
+        });
         break;
       default:
         mlAst.visitAll(this, element.children, null);

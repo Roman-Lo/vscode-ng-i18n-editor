@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import {EditorCommandHandler} from './command-handler';
-import {ExtensionSettingManager, IExtChangedEventSubscription} from "../modules/setting/ext-setting-manager";
+import { EditorCommandHandler } from './command-handler';
+import { ExtensionSettingManager, IExtChangedEventSubscription } from "../modules/setting/ext-setting-manager";
 
 
 export class EditorWebViewBuilder {
@@ -49,7 +49,7 @@ export class EditorWebViewBuilder {
 
       panel.webview.html = this.buildWebViewHtml(panel, ctx);
 
-      this.commandHandler = new EditorCommandHandler(panel.webview, this.setting);
+      this.commandHandler = new EditorCommandHandler(panel.webview);
       panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
         try {
           this.commandHandler?.handle(message.command, message.data);
@@ -64,7 +64,7 @@ export class EditorWebViewBuilder {
 
       this.settingChangeSub = this.settingManager.onSettingDidChange(() => {
         // this.reload(ctx);
-      }, () => {});
+      }, () => { });
 
       this.currentPanel = panel;
     }
@@ -74,7 +74,6 @@ export class EditorWebViewBuilder {
     ctx: vscode.ExtensionContext
   ) {
     if (this.currentPanel) {
-      this.commandHandler?.updateSetting(this.setting);
       this.currentPanel.webview.html = this.buildWebViewHtml(this.currentPanel, ctx);
     }
   }
@@ -119,7 +118,10 @@ export class EditorWebViewBuilder {
 
   private cleanObjects() {
     this.currentPanel = undefined;
-    this.commandHandler = undefined;
+    if (this.commandHandler) {
+      this.commandHandler.dispose();
+      this.commandHandler = undefined;
+    }
     if (this.settingChangeSub) {
       this.settingChangeSub.unsubscribe();
       this.settingChangeSub = undefined;

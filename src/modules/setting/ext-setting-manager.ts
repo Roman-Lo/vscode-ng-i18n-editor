@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ObjectUtils} from '../common/object.util';
-import {CONST_EXTENSION_SETTING_FILE} from '../../constants';
+import { ObjectUtils } from '../common/object.util';
+import { CONST_EXTENSION_SETTING_FILE } from '../../constants';
 
 const G_DefaultSetting: INgI18nExtSetting = {
   tm: { // TODO: translation memory feature is not supported yet
@@ -38,7 +38,7 @@ class ExtChangedEventSubscription implements IExtChangedEventSubscription {
 
 export class ExtensionSettingManager implements vscode.Disposable {
   private static _g_listener_counter: number = 1024; // counter starting from 1024 (no reason just I like to do so)
-
+  private static _g_instance: ExtensionSettingManager;
   private _handling_event_counter: number = 0;
   private _vs_subscriptions: vscode.Disposable[] = [];
   private _event_subscribers: {
@@ -52,19 +52,25 @@ export class ExtensionSettingManager implements vscode.Disposable {
 
   static create(context: vscode.ExtensionContext): Thenable<ExtensionSettingManager> {
     return new Promise<ExtensionSettingManager>((resolve, reject) => {
-      const settingUri = vscode.Uri.parse(path.resolve(vscode.workspace.workspaceFolders![0].uri.fsPath, CONST_EXTENSION_SETTING_FILE));
+      const settingUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, CONST_EXTENSION_SETTING_FILE);
       vscode.workspace.fs.readFile(settingUri).then((content) => {
         try {
           const jsonStr = new TextDecoder("utf-8").decode(content);
           const setting: INgI18nExtSetting = JSON.parse(jsonStr);
-          resolve(new ExtensionSettingManager(context, setting));
+          ExtensionSettingManager._g_instance = new ExtensionSettingManager(context, setting);
         } catch (e) {
-          resolve(new ExtensionSettingManager(context, G_DefaultSetting));
+          ExtensionSettingManager._g_instance = new ExtensionSettingManager(context, G_DefaultSetting);
         }
+        resolve(ExtensionSettingManager._g_instance);
       }, (err) => {
-        resolve(new ExtensionSettingManager(context, G_DefaultSetting));
+        ExtensionSettingManager._g_instance = new ExtensionSettingManager(context, G_DefaultSetting);
+        resolve(ExtensionSettingManager._g_instance);
       });
     });
+  }
+
+  static getInstance(): ExtensionSettingManager {
+    return ExtensionSettingManager._g_instance;
   }
 
 
@@ -90,14 +96,14 @@ export class ExtensionSettingManager implements vscode.Disposable {
     const diffs = ObjectUtils.diff(cur, old);
     if (diffs.length > 0) {
       this._setting = cur;
-      console.log(`[ExtensionSettingManager] setting updated.`, {cur, old});
+      console.log(`[ExtensionSettingManager] setting updated.`, { cur, old });
       this.sendChangeEventToSubscribers(cur, old);
     }
   }
 
   onSettingDidChange(onChange: ExtChangedFunc, onDispose: (() => void) | null = null): IExtChangedEventSubscription {
     const counter = ExtensionSettingManager._g_listener_counter++;
-    this._event_subscribers[counter.toString()] = {changeCb: onChange, disposeCb: onDispose};
+    this._event_subscribers[counter.toString()] = { changeCb: onChange, disposeCb: onDispose };
     return new ExtChangedEventSubscription(counter, (c: number) => {
       this.removeSubscriber(c);
     });

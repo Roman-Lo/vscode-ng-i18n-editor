@@ -676,10 +676,7 @@ export function bootstrap() {
         // reload is needed！
         app.$warning({
           title: 'File Modification Notice',
-          content: `
-                      <div>
-                        <p>The current xliff file has been modified outside. The page will be reloaded, all the unsave change will be disgarded.</p>
-                      </div>`,
+          content: `The current xliff file has been modified outside. The page will be reloaded, all the unsave change will be disgarded.`,
           onOk() {
             let cmdBase = generateCommandBase();
             sendCommand('load-xliff-file', Object.assign(cmdBase, {
@@ -887,11 +884,7 @@ export function bootstrap() {
     if (data.error) {
       app.$error({
         title: 'Command Execution Failed',
-        content: `
-                      <div>
-                        <p>Failed to execute: '${data.commandName}', error: ${data.error.message} [${data.error.code}]. Hash: ${data.hash}.</p>
-                      </div>
-                `
+        content: `Failed to execute: '${data.commandName}', error: ${data.error.message} [${data.error.code}]. Hash: ${data.hash}.`
       });
       isValid = false;
     }

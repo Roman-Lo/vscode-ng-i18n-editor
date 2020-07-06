@@ -41,7 +41,7 @@ export class EditorWebViewBuilder {
           retainContextWhenHidden: true,
           localResourceRoots: [
             vscode.Uri.file(path.join(ctx.extensionPath, 'libs')),
-            vscode.Uri.file(path.join(ctx.extensionPath, 'out', 'editor'))
+            vscode.Uri.file(path.join(ctx.extensionPath, 'dist'))
           ]
         }
       );
@@ -98,7 +98,7 @@ export class EditorWebViewBuilder {
       path.join(ctx.extensionPath, 'libs', 'vue-dash-event', '1.0.1', 'index.min.js')
     ));
     const mainJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
-      path.join(ctx.extensionPath, 'out', 'editor', 'main.js')
+      path.join(ctx.extensionPath, 'dist', 'main.js')
     ));
 
 

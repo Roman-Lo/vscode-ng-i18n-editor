@@ -4,13 +4,29 @@
   "version": "2.0.0",
   "tasks": [{
     "type": "npm",
-    "script": "watch",
+    "script": "webpack-dev-watch",
     "problemMatcher": [
-      "$ts-webpack"
+      {
+        "base": "$ts-webpack-watch",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": {
+            "regexp": "webpack is watching the files..."
+          },
+          "endsPattern": {
+            "regexp": "Hash: [a-z0-9]+"
+          }
+        }
+      }      
     ],
     "isBackground": true,
     "presentation": {
-      "reveal": "never"
+      "echo": true,
+      "reveal": "never",
+      "focus": false,
+      "panel": "shared",
+      "showReuseMessage": true,
+      "clear": false
     },
     "group": {
       "kind": "build",

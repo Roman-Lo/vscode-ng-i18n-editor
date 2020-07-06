@@ -33,16 +33,12 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
-    "compile": "tsc -p ./",
+    "vscode:prepublish": "webpack --mode production",
     "lint": "eslint src --ext ts",
-    "watch": "webpack --mode development --watch",
-    "// watch": "gulp watch",
-    "pretest": "yarn run compile && yarn run lint",
-    "test": "node ./out/test/runTest.js",
-    "webpack": "webpack --mode development",
-    "webpack-dev": "webpack --mode development --watch",
-    "webpack-release": "webpack --mode production"
+    "webpack-dev": "webpack --mode development",
+    "webpack-dev-watch": "webpack --mode development --watch",
+    "pretest": "yarn run webpack-dev && yarn run lint",
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
     "@types/glob": "^7.1.1",
@@ -54,8 +50,6 @@
     "ant-design-vue": "^1.6.2",
     "eslint": "^6.8.0",
     "glob": "^7.1.6",
-    "gulp": "^4.0.2",
-    "gulp-watch": "^5.0.1",
     "mocha": "^7.1.2",
     "raw-loader": "^4.0.1",
     "ts-loader": "^7.0.5",

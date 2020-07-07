@@ -389,7 +389,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
               return false;
             }
           }
-          targetChanged = record.target?.trim() !== target.trim();
+          targetChanged = (record.target?.trim() ?? '') !== target.trim();
           record.target = target;
           record.target_parts = parts;
           record.target_identifier = targetIdfr;

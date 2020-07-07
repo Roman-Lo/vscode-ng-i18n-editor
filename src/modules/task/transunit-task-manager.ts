@@ -257,16 +257,16 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
           } = Xliff.loadTransUnits(content, '');
           transUnits.forEach(t => {
             const tar = transUnitByMsgId[t.key];
+            const isEmpty = t.target === null || t.target === '';
             if (!tar) {
               transUnitByMsgId[t.key] = t;
             } else {
-              if (t.target === null || t.target === '') {
-                // remove target
-                delete transUnitByMsgId[t.key];
-              } else {
-                tar.target = t.target;
-                tar.state = t.state;
-              }
+              tar.target = t.target;
+              tar.state = t.state;
+            }
+            if (isEmpty) {
+              // remove target
+              delete transUnitByMsgId[t.key];
             }
           });
           const updatedTransUnits = Object.values(transUnitByMsgId);

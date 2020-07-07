@@ -299,6 +299,8 @@ export class EditorCommandHandler implements vscode.Disposable {
                     transUnit.state = 'translated'; // unlock the signed-off state
                   }
                 }
+              } else {                
+                transUnit.state = 'needs-translation';
               }
               return transUnit;
             });

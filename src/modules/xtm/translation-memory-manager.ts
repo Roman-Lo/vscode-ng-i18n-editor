@@ -4,6 +4,7 @@ import * as path from 'path';
 import { Xtm } from "./xtm";
 import { TaskUtils } from "../common/task.util";
 import { ObjectUtils } from "../common/object.util";
+import { ExtensionSettingManager, IExtChangedEventSubscription } from "../setting/ext-setting-manager";
 
 interface IMemoryCellCacheStruct {
   srcIdfr: string;
@@ -22,11 +23,11 @@ export class TranslationMemoryManager implements vscode.Disposable {
   private static _g_tm_update_queue_idx = 2048;
   private static _g_instance_dict_: { [key: string]: { path: string, srcLocale: string, inst: TranslationMemoryManager } } = {};
 
-  static getInstance(file: string, sourceLocale: string, enabled: boolean): TranslationMemoryManager {
+  static getInstance(file: string, sourceLocale: string): TranslationMemoryManager {
     const instKey = TranslationMemoryManager.getInstanceKey(file, sourceLocale);
     let tar = TranslationMemoryManager._g_instance_dict_[instKey];
     if (!tar) {
-      const inst = new TranslationMemoryManager(file, sourceLocale, enabled);
+      const inst = new TranslationMemoryManager(file, sourceLocale);
       TranslationMemoryManager._g_instance_dict_[instKey] = tar = {
         path: file,
         srcLocale: sourceLocale,
@@ -40,14 +41,9 @@ export class TranslationMemoryManager implements vscode.Disposable {
     return `${sourceLocale}_${file}`;
   }
 
-  static switch(enabled: boolean) {
-    Object.keys(TranslationMemoryManager._g_instance_dict_).forEach(key => {
-      TranslationMemoryManager._g_instance_dict_[key].inst.enableTm(enabled);
-    });
-  }
-
   private readonly _command_by_key_: { [key: string]: IMemoryUnitUpdateCommand } = {};
   private readonly _command_key_queue_: string[] = [];
+  private _setting: ITranslationMemorySetting = { enabled: false, mode: 'git', uri: '.ngI18nExt/ext.xtm' };
 
   private __interval_pin__: any | null = null;
   private _running: boolean = false;
@@ -60,18 +56,46 @@ export class TranslationMemoryManager implements vscode.Disposable {
 
   private _memoryItemByIdfr: { [key: string]: IMemoryCellCacheStruct } = {};
 
+  private _settingChangeSubscription!: IExtChangedEventSubscription;
+
+  get enabled(): boolean {
+    return this._setting.enabled;
+  }
+
   constructor(
     private readonly xtmFileLocation: string,
     private readonly sourceLocale: string,
-    private _enabled: boolean
   ) {
     this.xtmFileListener = TaskUtils.createDebounceFn(this._onXtmFileChanged.bind(this), 500);
-    if (this._enabled) {
-      this.init();
-    }
+    this.init();
   }
 
   private init() {
+    const settingManager = ExtensionSettingManager.getInstance();
+    this._setting = settingManager.setting.tm || this._setting;
+    this.initXtmFile();
+    this._settingChangeSubscription = settingManager.onSettingDidChange((cur) => {
+      const curSetting = cur.tm;
+      const oldSetting = this._setting;
+      const diffs = ObjectUtils.diff(curSetting, oldSetting);
+      if (diffs.length > 0) {
+        let curEnabled = curSetting.enabled;
+        let oldEnabled = oldSetting.enabled;
+        this._setting = ObjectUtils.clone(curSetting);
+        if (curEnabled !== oldEnabled) {
+          if (oldEnabled) {
+            this.stop();
+            this.flushCmdQueue();
+          } else {
+            this.restart();
+          }
+        }
+      }
+    });
+    this._initialized = true;
+  }
+
+  private initXtmFile() {
     let isNew = false;
     if (!fs.existsSync(this.xtmFileLocation)) {
       isNew = true;
@@ -89,10 +113,9 @@ export class TranslationMemoryManager implements vscode.Disposable {
     if (!isNew) {
       this.initCacheFromFile();
     }
-    if (this._enabled) {
+    if (this.enabled) {
       this.restart();
     }
-    this._initialized = true;
   }
 
   private initCacheFromFile() {
@@ -141,21 +164,6 @@ export class TranslationMemoryManager implements vscode.Disposable {
       this._running = false;
     }
   }
-
-  public enableTm(enabled: boolean) {
-    if (this._enabled !== enabled) {
-      this._enabled = enabled;
-      if (this._enabled) {
-        if (!this._initialized) {
-          this.init();
-        }
-        this.restart();
-      } else {
-        this.stop();
-      }
-    }
-  }
-
 
   private _onXtmFileChanged(cur: fs.Stats, pre: fs.Stats) {
     if (cur.mtime.getTime() > this._last_mtime_) {
@@ -283,7 +291,7 @@ export class TranslationMemoryManager implements vscode.Disposable {
   }
 
   update(cmd: IMemoryUnitUpdateCommand) {
-    if (!this._enabled) {
+    if (!this.enabled) {
       return;
     }
     if (!cmd.transUnit.target) {
@@ -307,8 +315,17 @@ export class TranslationMemoryManager implements vscode.Disposable {
   }
 
   dispose() {
-    try { fs.unwatchFile(this.xtmFileLocation, this.xtmFileListener); } catch (e) { }
-    try { this.flushCmdQueue(); } catch (e) { }
+    try {
+      if (this._settingChangeSubscription) {
+        this._settingChangeSubscription.unsubscribe();
+      }
+    } catch (e) { }
+    try {
+      fs.unwatchFile(this.xtmFileLocation, this.xtmFileListener);
+    } catch (e) { }
+    try {
+      this.flushCmdQueue();
+    } catch (e) { }
     if (this.__interval_pin__) {
       try {
         clearInterval(this.__interval_pin__);

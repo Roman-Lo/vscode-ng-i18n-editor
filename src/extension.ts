@@ -18,23 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
   ExtensionSettingManager.create(context).then(
     (settingManager) => {
       const builder = new EditorWebViewBuilder(settingManager);
-      
-      let settingSub = settingManager.onSettingDidChange((cur, old) => {
-        const { tm: curTm } = cur;
-        const { tm: oldTm } = old;
-        const diffs = ObjectUtils.diff(curTm, oldTm);
-        if (diffs.length > 0) {
-          TranslationMemoryManager.switch(curTm.enabled);
-        }
-      }, () => {
-        settingSub.unsubscribe();
-      });
-
-
       let view_subs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
         builder.create(context);
       });
-
       context.subscriptions.push(
         view_subs
       );

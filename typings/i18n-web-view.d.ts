@@ -44,11 +44,12 @@ declare namespace i18nWebView // i18n-webview
   }
 
   interface XliffFileUpdatedEvent extends ExtEventBase {
-    readonly triggerBy: string;
-    readonly xliffFile: string;
-    readonly sourceLangCode: string;
-    readonly targetLangCode: string;
-    readonly transUnits: i18n.TransUnit[];
+    readonly canIgnoreEditorReload: boolean;
+    readonly sourceFile: string;
+    readonly targetFile: string;
+    readonly sourceLocale: string;
+    readonly targetlocale: string;
+    readonly updateTarget: 'source' | 'target';
   }
 
   interface LoadTransUnitCodeContextCommand extends ExtEventBase {
@@ -106,6 +107,7 @@ declare namespace i18nWebView // i18n-webview
 
     "reveal-code-ctx": CodeContextRevealCommand;
     "code-ctx-revealed": CodeContextRevealResultEvent;
+
   }
 
   type CommandName = keyof I18nTranslateWebViewCommandMap;

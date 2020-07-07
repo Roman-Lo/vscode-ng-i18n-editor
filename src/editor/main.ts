@@ -26,7 +26,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
       });
     }
   }
-  
+
   console.log('loaded!');
 
   let _transUnits: i18nWebView.ITransUnitView[] = [];
@@ -666,19 +666,27 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
       }
     },
     'xliff-file-updated': (data: i18nWebView.I18nTranslateWebViewCommandMap['xliff-file-updated']) => {
-      if (data.triggerBy === 'ext' || data.xliffFile !== pageData.selectedXliffFile) {
+      const { canIgnoreEditorReload, sourceFile, targetFile, targetlocale, updateTarget } = data;
+      if (canIgnoreEditorReload || data.sourceFile !== pageData.selectedXliffFile) {
         return;
       } else {
+        let message = '';
+        if (updateTarget === 'source') {
+          message = `The source message file (${sourceFile}) has been modified unexpectedly. The page need to reload to get the updated data. Thus, all the unsave changes will be disgarded.`;
+        } else {
+          message = `The target message file (${targetFile}) has been modified unexpectedly. The page need to reload to get the updated data. Thus, all the unsave changes will be disgarded.`;
+        }
         // reload is needed！
         app.$warning({
           title: 'File Modification Notice',
-          content: `The current xliff file has been modified outside. The page will be reloaded, all the unsave change will be disgarded.`,
+          content: message,
           onOk() {
-            let cmdBase = generateCommandBase();
-            sendCommand('load-xliff-file', Object.assign(cmdBase, {
-              xliffFile: data.xliffFile,
-              locale: data.targetLangCode
-            }), true);
+            app.loadXliffContent();
+            // let cmdBase = generateCommandBase();
+            // sendCommand('load-xliff-file', Object.assign(cmdBase, {
+            //   xliffFile: data.sourceFile,
+            //   locale: targetlocale
+            // }), true);
           }
         });
       }

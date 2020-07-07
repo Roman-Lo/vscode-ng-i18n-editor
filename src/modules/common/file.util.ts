@@ -1,5 +1,5 @@
-import {resolve} from 'path';
-import {promises} from 'fs';
+import { resolve } from 'path';
+import { promises } from 'fs';
 
 export class FileUtils {
 
@@ -13,8 +13,18 @@ export class FileUtils {
     return targetFile;
   }
 
+  static getCorrespondingSourceFile(targetFile: string, targetLocale: string): string {
+    const parts = targetFile.split('.');
+    const fileExtPart = parts.splice(parts.length - 1, 1)[0];
+    const langPart =  `(${targetLocale})`;
+    parts[parts.length - 1] = fileExtPart.replace(langPart, '');
+    parts.push(fileExtPart);
+    const sourceFile = parts.join('.');
+    return targetFile;
+  }
+
   static async listFiles(dir: string, options?: { exts?: string[] }): Promise<string[]> {
-    const dirents = await promises.readdir(dir, {withFileTypes: true});
+    const dirents = await promises.readdir(dir, { withFileTypes: true });
     const files: string[] = [];
     await Promise.all(dirents.map(async (dirent) => {
       const res = resolve(dir, dirent.name);

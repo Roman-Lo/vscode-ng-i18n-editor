@@ -1,10 +1,9 @@
 import * as antd from 'ant-design-vue';
 import { Webview } from 'vscode';
 import Vue from 'vue';
-
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
-
+declare var defaultMessageLocation: string | null;
 let vscode: Webview | null = null;
 try {
   if (isInVsCodeIDE) {
@@ -37,7 +36,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
   const pageData: i18nWebView.IWebViewPageData = isInVsCodeIDE ? {
     xliffFiles: [],
     locales: [],
-    selectedXliffFile: null,
+    selectedXliffFile: defaultMessageLocation ?? null,
     selectedTargetLocale: null,
     xliffFileLoading: false,
     settings: {

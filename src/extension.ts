@@ -14,6 +14,7 @@ import { ExtensionSettingManager } from './modules/setting/ext-setting-manager';
 import { CONST_EXTENSION_SETTING_FILE, CONST_TRANSUNIT_MEMORY_FILE_TYPE } from './constants';
 import { ObjectUtils } from './modules/common/object.util';
 import { TranslationMemoryManager } from './modules/xtm/translation-memory-manager';
+import { FileUtils } from './modules/common/file.util';
 
 
 // this method is called when your extension is activated
@@ -26,11 +27,28 @@ export function activate(context: vscode.ExtensionContext) {
   ExtensionSettingManager.create(context).then(
     (settingManager) => {
       const builder = new EditorWebViewBuilder(settingManager);
+
       let view_subs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
         builder.create(context);
       });
+
+      let file_open_subs = vscode.workspace.onDidOpenTextDocument((e) => {
+        if (e.fileName.search(/.(xlf|xliff)$/) >= 0) { // file matches
+          const relPath = vscode.workspace.asRelativePath(e.fileName);
+          if (settingManager.setting?.editor?.messageLocations?.indexOf(relPath) >= 0) {
+            vscode.window.showInformationMessage(`This file can be view in '${builder.panelTitle}'`, {
+              title: `Open ${builder.panelTitle}`
+            }).then((result) => {
+              if (result?.title === `Open ${builder.panelTitle}`) {
+                builder.create(context, e.uri.toString());
+              }
+            });
+          }
+        }
+      });
+
       context.subscriptions.push(
-        view_subs
+        view_subs, file_open_subs
       );
     }
   );
@@ -39,7 +57,6 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {
 }
-
 
 function configFileAssociations() {
   const filesConfig = vscode.workspace.getConfiguration();

@@ -1,3 +1,11 @@
+/**
+ * @license
+ * Copyright (c) 2020 Roman-Lo. https://github.com/Roman-Lo
+ *
+ * Use of this source code is governed by an MIT-style license
+ */
+
+
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';

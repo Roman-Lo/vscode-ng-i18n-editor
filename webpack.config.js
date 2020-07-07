@@ -4,6 +4,7 @@
 'use strict';
 const path = require('path');
 const fs = require('fs');
+const webpack = require('webpack');
 const webviewIndexLocation = path.resolve(__dirname, 'src', 'editor', 'index.html');
 
 // class WebEditorHtmlWebpackPlugin {
@@ -92,6 +93,7 @@ const extensionConfig = {
   },
   plugins: [
     //new WebEditorHtmlWebpackPlugin()
+    new webpack.BannerPlugin(fs.readFileSync('./LICENSE', 'utf8'))
   ]
 };
 
@@ -135,6 +137,9 @@ const webviewMainConfig = {
       },
     ]
   },
+  plugins: [
+    new webpack.BannerPlugin(fs.readFileSync('./LICENSE', 'utf8'))
+  ]
 };
 
 module.exports = [extensionConfig, webviewMainConfig];

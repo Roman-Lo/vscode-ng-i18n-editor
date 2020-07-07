@@ -12,7 +12,7 @@ interface ICommandQueueItem {
   omcb: (result: i18nWebView.TransUnitOmittedResult) => void;
 }
 
-export class EditorTransUnitUpdateTaskManager {
+export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
   static readonly DEFAULT_INTERVAL_SECONDS = 5;
   static readonly DEFAULT_ITEM_EACH_PACK = 10;
 
@@ -26,6 +26,7 @@ export class EditorTransUnitUpdateTaskManager {
   private __executing__: boolean = false;
   private __last_write_time__: number = 0;
   private _setting!: II18nEditorTaskConfig;
+  private _vs_subscriptions: vscode.Disposable[] = [];
 
   get activeTaskCount(): number {
     return this.transUnitKeyQueue.length;
@@ -157,6 +158,14 @@ export class EditorTransUnitUpdateTaskManager {
         packCount += this._setting.itemEachPack!;
       }
     }, this._setting.intervalSeconds! * 1000);
+  }
+
+  dispose() {
+    try {
+      this.flush();
+    } catch (e) { 
+
+    }
   }
 
   pushCommand(
@@ -327,5 +336,9 @@ export class EditorTransUnitUpdateTaskManager {
         }
       );
     });
+  }
+
+  private _fileChangeListener() {
+
   }
 }

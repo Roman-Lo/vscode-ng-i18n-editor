@@ -13,4 +13,5 @@ vsc-extension-quickstart.md
 webpack.config.js
 
 # whitelist
-!dist/**.min.js
+!dist/extension.js
+!dist/main.js

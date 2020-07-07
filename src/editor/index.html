@@ -186,14 +186,14 @@
       <a-row type="flex" data-page-section="filter-section" :gutter="8">
         <a-col :span="6">
           <!-- <div><label>Xliff Location:</label></div> -->
-          <a-select style="width: 100%" placeholder="Select a file" @change="onSelectedFileChange">
+          <a-select style="width: 100%" placeholder="Select a file" :value="selectedXliffFile ? selectedXliffFile : undefined" @change="onSelectedFileChange">
             <a-select-option v-for="item in xliffFiles" :key="item.path">
               {{ item.name }}
             </a-select-option>
           </a-select>
         </a-col>
         <a-col :span="4">
-          <a-select style="width: 100%" placeholder="Select a target locale" @change="onSelectedTargetLocale">
+          <a-select style="width: 100%" placeholder="Select a target locale" v-value="selectedTargetLocale" @change="onSelectedTargetLocale">
             <a-select-option v-for="item in locales" :key="item">
               <b>{{ item }}</b>
             </a-select-option>
@@ -506,11 +506,15 @@
   // }
   let mainJsLocation = '#main#';
   let mockDataJsLocation = '#mockData#';
+  let defaultMessageLocation = '#defaultMessageLocation#';
   if (mainJsLocation === '#main#') {
     mainJsLocation = '../../dist/main.js';
   }
   if (mockDataJsLocation === '#mockData#') {
     mockDataJsLocation = '../../dist/mock-data.js';
+  }
+  if (defaultMessageLocation === '#defaultMessageLocation#') {
+    defaultMessageLocation = null;
   }
   const localResources = {
     // localCss: '../../out/i18nTranslateWebView/main.css',

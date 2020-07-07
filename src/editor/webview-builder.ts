@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import {EditorCommandHandler} from './command-handler';
-import {ExtensionSettingManager, IExtChangedEventSubscription} from "../modules/setting/ext-setting-manager";
+import { EditorCommandHandler } from './command-handler';
+import { ExtensionSettingManager, IExtChangedEventSubscription } from "../modules/setting/ext-setting-manager";
 import html from '!!raw-loader!./index.html';
 
 export class EditorWebViewBuilder {
@@ -25,9 +25,7 @@ export class EditorWebViewBuilder {
 
   }
 
-  public create(
-    ctx: vscode.ExtensionContext
-  ) {
+  public create(ctx: vscode.ExtensionContext, defaultMessageLocation: string | null = null) {
     const columnToShownIn = vscode.window.activeTextEditor ?
       vscode.window.activeTextEditor.viewColumn :
       undefined;
@@ -47,7 +45,7 @@ export class EditorWebViewBuilder {
         }
       );
 
-      panel.webview.html = this.buildWebViewHtml(panel, ctx);
+      panel.webview.html = this.buildWebViewHtml(panel, ctx, defaultMessageLocation);
 
       this.commandHandler = new EditorCommandHandler(panel.webview);
       panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
@@ -71,16 +69,17 @@ export class EditorWebViewBuilder {
   }
 
   public reload(
-    ctx: vscode.ExtensionContext
+    ctx: vscode.ExtensionContext, defaultMessageLocation: string | null = null
   ) {
     if (this.currentPanel) {
-      this.currentPanel.webview.html = this.buildWebViewHtml(this.currentPanel, ctx);
+      this.currentPanel.webview.html = this.buildWebViewHtml(this.currentPanel, ctx, defaultMessageLocation);
     }
   }
 
   private buildWebViewHtml(
     panel: vscode.WebviewPanel,
-    ctx: vscode.ExtensionContext
+    ctx: vscode.ExtensionContext,
+    defaultMessageLocation: string | null
   ) {
     const vueJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
       path.join(ctx.extensionPath, 'libs', 'vue', '2.6.11', 'vue.js')
@@ -111,7 +110,8 @@ export class EditorWebViewBuilder {
       .replace('#vueAntdCssSrc#', vueAntdCssSrc.toString())
       .replace('#vueAntdJsSrc#', vueAntdJsSrc.toString())
       .replace('#momentJsSrc#', momentJsSrc.toString())
-      .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString());
+      .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString())
+      .replace('#defaultMessageLocation#', defaultMessageLocation ?? 'null');
 
     return parsedHTML;
   }

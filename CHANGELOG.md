@@ -1,5 +1,5 @@
 # Change Log
 
-## [Unreleased]
+## [0.1.0]
 
-- Initial release
+- Initial release for the vscode-ng-i18n-editor

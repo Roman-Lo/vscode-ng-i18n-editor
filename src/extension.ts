@@ -9,9 +9,11 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import {EditorWebViewBuilder} from './editor/webview-builder';
-import {ExtensionSettingManager} from './modules/setting/ext-setting-manager';
-import {CONST_EXTENSION_SETTING_FILE, CONST_TRANSUNIT_MEMORY_FILE_TYPE} from './constants';
+import { EditorWebViewBuilder } from './editor/webview-builder';
+import { ExtensionSettingManager } from './modules/setting/ext-setting-manager';
+import { CONST_EXTENSION_SETTING_FILE, CONST_TRANSUNIT_MEMORY_FILE_TYPE } from './constants';
+import { ObjectUtils } from './modules/common/object.util';
+import { TranslationMemoryManager } from './modules/xtm/translation-memory-manager';
 
 
 // this method is called when your extension is activated
@@ -24,11 +26,9 @@ export function activate(context: vscode.ExtensionContext) {
   ExtensionSettingManager.create(context).then(
     (settingManager) => {
       const builder = new EditorWebViewBuilder(settingManager);
-
       let view_subs = vscode.commands.registerCommand('vscode-ng-i18n-editor.openEditor', () => {
         builder.create(context);
       });
-
       context.subscriptions.push(
         view_subs
       );

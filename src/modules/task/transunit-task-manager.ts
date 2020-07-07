@@ -24,7 +24,7 @@ export class EditorTransUnitUpdateTaskManager {
 
   private __interval_pin__: any | null = null;
   private __executing__: boolean = false;
-
+  private __last_write_time__: number = 0;
   private _setting!: II18nEditorTaskConfig;
 
   get activeTaskCount(): number {
@@ -39,6 +39,9 @@ export class EditorTransUnitUpdateTaskManager {
     return this.__executing__;
   }
 
+  get lastWriteTime(): number {
+    return this.__last_write_time__;
+  }
 
   static getManager(srcLocale: string, tarLocale: string, xliffUri: vscode.Uri): Thenable<EditorTransUnitUpdateTaskManager> {
     const key = EditorTransUnitUpdateTaskManager.buildCacheKey(srcLocale, tarLocale, xliffUri);
@@ -61,7 +64,7 @@ export class EditorTransUnitUpdateTaskManager {
                 } else if (tarLocale !== targetLocale) {
                   reject(`Unable to save trans units into '${xliffUri.fsPath}': target locale is not match, actual: ${targetLocale}, expected: ${tarLocale}`);
                 } else {
-                  resolve(EditorTransUnitUpdateTaskManager.createManagerInstance(srcLocale, tarLocale, xliffUri));
+                  resolve(EditorTransUnitUpdateTaskManager.createManagerInstance(srcLocale, tarLocale, xliffUri, s.mtime));
                 }
               },
               (err) => {
@@ -71,16 +74,16 @@ export class EditorTransUnitUpdateTaskManager {
           },
           (reason) => {
             // file not exist
-            resolve(EditorTransUnitUpdateTaskManager.createManagerInstance(srcLocale, tarLocale, xliffUri));
+            resolve(EditorTransUnitUpdateTaskManager.createManagerInstance(srcLocale, tarLocale, xliffUri, 0));
           }
         );
       });
     }
   }
 
-  private static createManagerInstance(srcLocale: string, tarLocale: string, xliffUri: vscode.Uri): EditorTransUnitUpdateTaskManager {
+  private static createManagerInstance(srcLocale: string, tarLocale: string, xliffUri: vscode.Uri, mtime: number): EditorTransUnitUpdateTaskManager {
     const key = EditorTransUnitUpdateTaskManager.buildCacheKey(srcLocale, tarLocale, xliffUri);
-    const inst = new EditorTransUnitUpdateTaskManager(srcLocale, tarLocale, xliffUri);
+    const inst = new EditorTransUnitUpdateTaskManager(srcLocale, tarLocale, xliffUri, mtime);
     EditorTransUnitUpdateTaskManager._g_instance_dict[key] = { fsPath: xliffUri.fsPath, inst: inst };
     return inst;
   }
@@ -93,7 +96,9 @@ export class EditorTransUnitUpdateTaskManager {
     private readonly sourceLocale: string,
     private readonly targetLocale: string,
     private readonly targetFile: vscode.Uri,
+    mtime: number
   ) {
+    this.__last_write_time__ = mtime;
     this.init();
   }
 
@@ -314,6 +319,7 @@ export class EditorTransUnitUpdateTaskManager {
       const data = new TextEncoder().encode(content);
       vscode.workspace.fs.writeFile(this.targetFile, data).then(
         () => {
+          this.__last_write_time__ = new Date().getTime();
           resolve(true);
         },
         (err) => {

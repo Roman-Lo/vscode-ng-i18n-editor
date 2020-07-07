@@ -118,7 +118,7 @@ export class EditorCommandHandler implements vscode.Disposable {
         }, (err) => {
           reject(err);
         });
-      }, () => { resovle('NOT-EXISTS'); })
+      }, () => { resovle('NOT-EXISTS'); });
     });
     Promise.all(
       [

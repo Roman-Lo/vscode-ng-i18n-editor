@@ -304,7 +304,10 @@ export class EditorCommandHandler implements vscode.Disposable {
             });
           }
         } else {
-          resultTransUnits = Object.values(transUnitByMsgId);
+          resultTransUnits = Object.values(transUnitByMsgId).map(v => { 
+            v.state = 'needs-translation';
+            return v;
+          });
         }
         if (!hasError) {
           result = {

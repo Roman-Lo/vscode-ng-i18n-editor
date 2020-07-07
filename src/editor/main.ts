@@ -243,7 +243,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
           }
         });
 
-        const targetPhTags = analyzeTransUnitTags(record.target_parts!);
+        const targetPhTags = analyzeTransUnitTags(record.target_parts ?? []);
         const availableTags = buildAvailableTagMetaArray(targetPhTags, allTagsMeta);
         editingUnitState.availableTags = availableTags;
         editingUnitState.editorValue = editorValueParts.join('');

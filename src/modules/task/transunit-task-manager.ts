@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { ExtensionSettingManager } from "../setting/ext-setting-manager";
 import { ObjectUtils } from "../common/object.util";
-import { existsSync, fstat } from 'fs';
 import { Xliff } from '../xliff/xliff';
 
 interface ICommandQueueItem {
@@ -163,7 +162,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
   dispose() {
     try {
       this.flush();
-    } catch (e) { 
+    } catch (e) {
 
     }
   }
@@ -261,8 +260,13 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
             if (!tar) {
               transUnitByMsgId[t.key] = t;
             } else {
-              tar.target = t.target;
-              tar.state = t.state;
+              if (t.target === null || t.target === '') {
+                // remove target
+                delete transUnitByMsgId[t.key];
+              } else {
+                tar.target = t.target;
+                tar.state = t.state;
+              }
             }
           });
           const updatedTransUnits = Object.values(transUnitByMsgId);

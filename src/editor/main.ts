@@ -410,6 +410,11 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
       toggleSignOff(record: i18nWebView.ITransUnitView) {
         record._locked = true;
         if (record.state !== 'signed-off') {
+          // detect if record target is empty
+          if ((record.target ?? '').trim() === '') {
+            record._locked = false;
+            return;
+          }
           record.state = 'signed-off';
         } else if (record.state === 'signed-off') {
           record.state = 'translated';

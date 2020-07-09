@@ -258,12 +258,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
           transUnits.forEach(t => {
             const tar = transUnitByMsgId[t.key];
             const isEmpty = t.target === null || t.target === '';
-            if (!tar) {
-              transUnitByMsgId[t.key] = t;
-            } else {
-              tar.target = t.target;
-              tar.state = t.state;
-            }
+            transUnitByMsgId[t.key] = t;
             if (isEmpty) {
               // remove target
               delete transUnitByMsgId[t.key];

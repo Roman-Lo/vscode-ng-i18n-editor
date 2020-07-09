@@ -68,7 +68,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
     filterOptions: {
       sourceKeyword: null,
       targetKeyword: null,
-      state: ['new', 'needs-translation', 'signed-off', 'translated'],
+      state: ['new', 'needs-translation', 'translated', 'signed-off'],
     },
     transUnitTable: {
       sourceXliffFile: '',

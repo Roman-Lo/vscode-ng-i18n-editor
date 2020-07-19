@@ -33,6 +33,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
   selectedXliffFile: null,
   selectedTargetLocale: null,
   xliffFileLoading: false,
+  messageListed: false,
   settings: {
     mode: 'git-control',
     translationSaveOn: 'blur',
@@ -4973,6 +4974,7 @@ export const MOCK_DATA: i18nWebView.IWebViewPageData = {
     totalAmount: 0,
     pageNum: 1,
     pageSize: 50,
+    numOfPage: 0,
   },
 
   statusBar: {

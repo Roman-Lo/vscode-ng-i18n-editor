@@ -35,12 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
       let file_open_subs = vscode.workspace.onDidOpenTextDocument((e) => {
         if (e.fileName.search(/.(xlf|xliff)$/) >= 0) { // file matches
           const relPath = vscode.workspace.asRelativePath(e.fileName);
-          if (settingManager.setting?.editor?.messageLocations?.indexOf(relPath) >= 0) {
+          const inControlFile = settingManager.getFile(relPath);
+          if (inControlFile !== null) {
             vscode.window.showInformationMessage(`This file can be view in '${builder.panelTitle}'`, {
               title: `Open ${builder.panelTitle}`
             }).then((result) => {
               if (result?.title === `Open ${builder.panelTitle}`) {
-                builder.create(context, e.uri.toString());
+                builder.create(context, inControlFile.filename, inControlFile.targetLocale);
               }
             });
           }

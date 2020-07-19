@@ -1,25 +1,28 @@
-import { resolve } from 'path';
+import * as path from 'path';
+import * as vscode from 'vscode';
 import { promises } from 'fs';
 
 export class FileUtils {
 
-  static getCorrespondingTranslationFile(sourceFile: string, targetLocale: string): string {
-    const parts = sourceFile.split('.');
-    const fileExtPart = parts.splice(parts.length - 1, 1)[0];
-    const fileNamePart = parts[parts.length - 1];
-    parts[parts.length - 1] = fileNamePart + `(${targetLocale})`;
-    parts.push(fileExtPart);
-    const targetFile = parts.join('.');
-    return targetFile;
-  }
+  static getCorrespondingTranslationFile(sourceFile: string, targetLocale: string, pattern: string): string {
+    const srcUri = vscode.Uri.parse(sourceFile);
+    const srcParts = srcUri.fsPath.split(path.sep);
+    const srcFileNameParts = srcParts[srcParts.length - 1].split('.');
+    const srcFileExt = srcFileNameParts.splice(srcFileNameParts.length - 1, 1);
+    const srcFileName = srcFileNameParts.join('.');
 
-  static getCorrespondingSourceFile(targetFile: string, targetLocale: string): string {
-    const parts = targetFile.split('.');
-    const fileExtPart = parts.splice(parts.length - 1, 1)[0];
-    const langPart =  `(${targetLocale})`;
-    parts[parts.length - 1] = fileExtPart.replace(langPart, '');
-    parts.push(fileExtPart);
-    const sourceFile = parts.join('.');
+    const lParts = targetLocale.split('-');
+    const lang = lParts[0];
+    const region = lParts[1];
+
+    let tarFileName = pattern
+      .replace('${name}', srcFileName)
+      .replace('${lang}', lang);
+
+    if (region) {
+      tarFileName = tarFileName.replace('${region}', region);
+    }
+    const targetFile = sourceFile.replace(srcParts[srcParts.length - 1], `${tarFileName}.${srcFileExt}`);
     return targetFile;
   }
 
@@ -27,7 +30,7 @@ export class FileUtils {
     const dirents = await promises.readdir(dir, { withFileTypes: true });
     const files: string[] = [];
     await Promise.all(dirents.map(async (dirent) => {
-      const res = resolve(dir, dirent.name);
+      const res = path.resolve(dir, dirent.name);
       if (dirent.isDirectory()) {
         return FileUtils.listFiles(res, options);
       } else {

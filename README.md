@@ -99,6 +99,16 @@ Editor mode.
 
   Edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)
 
+#### `editor.emptyTranslationHandling: 'delete' | 'keep' | 'fallback-to-source'`
+
+Determine how to handle empty translation.
+
+- `delete`: delete the trans unit in the target xliff when empty;
+- `keep`: keep the trans unit in the target xliff and mark as `need-translation`;
+- `fallback-to-source`: fill the translation target using the source string and mark as `need-translation`;
+
+***When editor is in `default` mode, this option is set `delete` as default; When editor is in `target-file` mode, this option is set `fallback-to-source` as default;***
+
 #### Task Config Setting
 
 The `editor.taskConfig` is to control the background task manager, which executes the transunit saving commands.

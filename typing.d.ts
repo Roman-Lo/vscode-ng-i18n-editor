@@ -72,16 +72,27 @@ interface II18nEditorSetting {
    * @memberof II18nEditorSetting
    */
   translationFileNamePattern: string;
-  
+
   /**
    * editor mode.
-   * `default`: use the xliff specify in the `messageLocations` as source and auto generate the target translation xliff based on the given `translationFileNamePattern`;
-   * `target-file`: edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)
+   *  * `default`: use the xliff specify in the `messageLocations` as source and auto generate the target translation xliff based on the given `translationFileNamePattern`;
+   *  * `target-file`: edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)
    *
    * @type {('default' | 'target-file')}
    * @memberof II18nEditorSetting
    */
   mode: 'default' | 'target-file';
+
+  /**
+   * determine how to handle empty translation.
+   *  * `delete`: delete the trans unit in the target xliff when empty;
+   *  * `keep`: keep the trans unit in the target xliff and mark as `need-translation`;
+   *  * `fallback-to-source`: fill the translation target using the source string and mark as `need-translation`;
+   * 
+   * When editor is in `default` mode, this option is set `delete` as default;
+   * When editor is in `target-file` mode, this option is set `fallback-to-source` as default;
+   */
+  emptyTranslationHandling: 'delete' | 'keep' | 'fallback-to-source';
 
   taskConfig?: II18nEditorTaskConfig | null;
 }

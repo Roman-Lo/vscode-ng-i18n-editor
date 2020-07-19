@@ -13,6 +13,7 @@ const G_DefaultSetting: INgI18nExtSetting = {
   editor: {
     translationSaveOn: 'blur',
     mode: 'default',
+    emptyTranslationHandling: 'delete',
     translationFileNamePattern: '${name}(${lang}-${region})',
     messageLocations: [
       'src/locale/messages.xlf'
@@ -150,6 +151,13 @@ export class ExtensionSettingManager implements vscode.Disposable {
     }
     if (!setting.editor.mode) {
       setting.editor.mode = G_DefaultSetting.editor.mode;
+    }
+    if (!setting.editor.emptyTranslationHandling) {
+      if (setting.editor.mode === 'target-file') {
+        setting.editor.emptyTranslationHandling = 'fallback-to-source';
+      } else {
+        setting.editor.emptyTranslationHandling = 'delete';
+      }
     }
     return setting;
   }

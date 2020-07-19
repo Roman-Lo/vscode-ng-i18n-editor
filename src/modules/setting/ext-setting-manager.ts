@@ -12,6 +12,8 @@ const G_DefaultSetting: INgI18nExtSetting = {
   locales: ['en-US'],
   editor: {
     translationSaveOn: 'blur',
+    mode: 'default',
+    translationFileNamePattern: '${name}(${lang}-${region})',
     messageLocations: [
       'src/locale/messages.xlf'
     ],
@@ -79,7 +81,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
   }
 
   private constructor(context: vscode.ExtensionContext, setting: INgI18nExtSetting) {
-    this._setting = ObjectUtils.clone(setting);
+    this._setting = this.checkAndPopulateDefaults(ObjectUtils.clone(setting));
     this.init();
     context.subscriptions.push(this);
   }
@@ -127,7 +129,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
         }
         try {
           const jsonStr = new TextDecoder("utf-8").decode(content);
-          const cur: INgI18nExtSetting = JSON.parse(jsonStr);
+          const cur: INgI18nExtSetting = this.checkAndPopulateDefaults(JSON.parse(jsonStr));
           this.update(cur);
         } catch (e) {
           console.error(`[onExtentionSettingChange] failed to parse setting data: ${e}`, e, content);
@@ -137,6 +139,19 @@ export class ExtensionSettingManager implements vscode.Disposable {
         console.error(`[onExtentionSettingChange] failed to read ${e.fsPath}: err`);
       }
     );
+  }
+
+  private checkAndPopulateDefaults(setting: INgI18nExtSetting): INgI18nExtSetting {
+    setting.tm = ObjectUtils.clone(G_DefaultSetting.tm);
+    setting.locales = setting.locales || ObjectUtils.clone(G_DefaultSetting.locales);
+    setting.editor = setting.editor || ObjectUtils.clone(G_DefaultSetting.editor);
+    if (!setting.editor.translationFileNamePattern) {
+      setting.editor.translationFileNamePattern = G_DefaultSetting.editor.translationFileNamePattern;
+    }
+    if (!setting.editor.mode) {
+      setting.editor.mode = G_DefaultSetting.editor.mode;
+    }
+    return setting;
   }
 
   private sendChangeEventToSubscribers(cur: INgI18nExtSetting, old: INgI18nExtSetting) {

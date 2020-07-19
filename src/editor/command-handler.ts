@@ -199,7 +199,7 @@ export class EditorCommandHandler implements vscode.Disposable {
 
   loadXliffFile(command: i18nWebView.LoadXliffFileCommand) {
     const tarLocale = command.locale;
-    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, tarLocale);
+    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, tarLocale, this.setting.editor.translationFileNamePattern);
 
     const fileUri = vscode.Uri.parse(command.xliffFile);
     const targetUri = vscode.Uri.parse(targetXliff);
@@ -336,7 +336,7 @@ export class EditorCommandHandler implements vscode.Disposable {
   }
 
   updateTransUnit(command: i18nWebView.TransUnitUpdateCommand) {
-    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, command.targetLocale);
+    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, command.targetLocale, this.setting.editor.translationFileNamePattern);
     const xliffUri = vscode.Uri.parse(targetXliff);
     EditorTransUnitUpdateTaskManager
       .getManager(command.sourceLocale, command.targetLocale, xliffUri)

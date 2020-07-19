@@ -193,7 +193,7 @@
           </a-select>
         </a-col>
         <a-col :span="4">
-          <a-select style="width: 100%" placeholder="Select a target locale" v-value="selectedTargetLocale" @change="onSelectedTargetLocale">
+          <a-select style="width: 100%" placeholder="Select a target locale" :value="selectedTargetLocale ? selectedTargetLocale : undefined" @change="onSelectedTargetLocale">
             <a-select-option v-for="item in locales" :key="item">
               <b>{{ item }}</b>
             </a-select-option>
@@ -215,7 +215,18 @@
           <!-- <a-button type="primary" v-if="hasTranslated">Sign Off All Translated</a-button> -->
         </a-col>
       </a-row>
-      <a-row type="flex" data-page-section="table-section" v-if="selectedXliffFile && selectedTargetLocale">
+      <a-row type="flex" data-page-section="prepare-section" v-if="!messageListed">
+        <a-col :span="24">
+          <a-spin :spinning="true" tip="Loading...">
+            <a-alert type="info">
+              <template slot="message">
+                Preparing data...
+              </template>
+            </a-alert>
+          </a-spin>
+        </a-col>
+      </a-row>
+      <a-row type="flex" data-page-section="table-section" v-else-if="selectedXliffFile && selectedTargetLocale">
         <a-col :span="24">
           <a-spin :spinning="xliffFileLoading" tip="Loading...">
             <a-alert v-if="!transUnitTable.loaded" :type="xliffFileLoading ? 'info' : 'error'" show-icon>
@@ -332,7 +343,7 @@
                       </a-alert>
                     </div>
                     <!-- translation display value -->
-                    <div v-else @click="startTranslation(record, $event)">
+                    <div v-else @dblclick="startTranslation(record, $event)">
                       <template v-for="(part, index) in record.target_parts">
                         <span v-if="part.type == 'text'">{{ part.displayHtml }}</span>
                         <a-tooltip v-else-if="part.type == 'ph_tag'" :title="part.rawHtml" placement="bottom">
@@ -507,6 +518,8 @@
   let mainJsLocation = '#main#';
   let mockDataJsLocation = '#mockData#';
   let defaultMessageLocation = '#defaultMessageLocation#';
+  let defaultMessageLocale = '#defaultMessageLocale#';
+  
   if (mainJsLocation === '#main#') {
     mainJsLocation = '../../dist/main.js';
   }
@@ -515,6 +528,9 @@
   }
   if (defaultMessageLocation === '#defaultMessageLocation#') {
     defaultMessageLocation = null;
+  }
+  if (defaultMessageLocale === '#defaultMessageLocale#') {
+    defaultMessageLocale = null;
   }
   const localResources = {
     // localCss: '../../out/i18nTranslateWebView/main.css',

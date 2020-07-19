@@ -25,7 +25,11 @@ export class EditorWebViewBuilder {
 
   }
 
-  public create(ctx: vscode.ExtensionContext, defaultMessageLocation: string | null = null) {
+  public create(
+    ctx: vscode.ExtensionContext,
+    defaultMessageLocation: string | null = null,
+    defaultMessageLocale: string | null = null
+  ) {
     const columnToShownIn = vscode.window.activeTextEditor ?
       vscode.window.activeTextEditor.viewColumn :
       undefined;
@@ -45,7 +49,7 @@ export class EditorWebViewBuilder {
         }
       );
 
-      panel.webview.html = this.buildWebViewHtml(panel, ctx, defaultMessageLocation);
+      panel.webview.html = this.buildWebViewHtml(panel, ctx, defaultMessageLocation, defaultMessageLocale);
 
       this.commandHandler = new EditorCommandHandler(panel.webview);
       panel.webview.onDidReceiveMessage((message: i18nWebView.I18nTranslateWebViewMessage<i18nWebView.CommandName>) => {
@@ -69,17 +73,24 @@ export class EditorWebViewBuilder {
   }
 
   public reload(
-    ctx: vscode.ExtensionContext, defaultMessageLocation: string | null = null
+    ctx: vscode.ExtensionContext,
+    defaultMessageLocation: string | null = null,
+    defaultMessageLocale: string | null = null
   ) {
     if (this.currentPanel) {
-      this.currentPanel.webview.html = this.buildWebViewHtml(this.currentPanel, ctx, defaultMessageLocation);
+      this.currentPanel.webview.html = this.buildWebViewHtml(
+        this.currentPanel,
+        ctx,
+        defaultMessageLocation,
+        defaultMessageLocale);
     }
   }
 
   private buildWebViewHtml(
     panel: vscode.WebviewPanel,
     ctx: vscode.ExtensionContext,
-    defaultMessageLocation: string | null
+    defaultMessageLocation: string | null,
+    defaultMessageLocale: string | null
   ) {
     const vueJsSrc = panel.webview.asWebviewUri(vscode.Uri.file(
       path.join(ctx.extensionPath, 'libs', 'vue', '2.6.11', 'vue.js')
@@ -111,7 +122,8 @@ export class EditorWebViewBuilder {
       .replace('#vueAntdJsSrc#', vueAntdJsSrc.toString())
       .replace('#momentJsSrc#', momentJsSrc.toString())
       .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString())
-      .replace('#defaultMessageLocation#', defaultMessageLocation ?? 'null');
+      .replace('#defaultMessageLocation#', defaultMessageLocation ?? 'null')
+      .replace('#defaultMessageLocale#', defaultMessageLocale ?? 'null');
 
     return parsedHTML;
   }

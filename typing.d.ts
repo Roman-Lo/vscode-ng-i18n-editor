@@ -51,6 +51,7 @@ interface II18nEditorSetting {
    * @type {('blur' | 'change' | 'manual')}
    */
   translationSaveOn: 'blur' | 'change' | 'manual';
+
   /**
    * message locations
    *
@@ -58,6 +59,40 @@ interface II18nEditorSetting {
    * @memberof II18nEditorSetting
    */
   messageLocations: string[];
+
+  /**
+   * translation file location pattern, the default value is '${name}(${lang}-${region})'.
+   * Which, 
+   *  * `${name}`: stands for the source xliff file name;
+   *  * `${lang}`: stands for the language;
+   *  * `${region}`： stands for the region where the language in use.
+   * For example, for locale 'en-US', the `${lang}` is 'en', the `${region}` is `US`. 
+   * You can specify your only translation file pattern to target your translation file.
+   * @type {string}
+   * @memberof II18nEditorSetting
+   */
+  translationFileNamePattern: string;
+
+  /**
+   * editor mode.
+   *  * `default`: use the xliff specify in the `messageLocations` as source and auto generate the target translation xliff based on the given `translationFileNamePattern`;
+   *  * `target-file`: edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)
+   *
+   * @type {('default' | 'target-file')}
+   * @memberof II18nEditorSetting
+   */
+  mode: 'default' | 'target-file';
+
+  /**
+   * determine how to handle empty translation.
+   *  * `delete`: delete the trans unit in the target xliff when empty;
+   *  * `keep`: keep the trans unit in the target xliff and mark as `need-translation`;
+   *  * `fallback-to-source`: fill the translation target using the source string and mark as `need-translation`;
+   * 
+   * When editor is in `default` mode, this option is set `delete` as default;
+   * When editor is in `target-file` mode, this option is set `fallback-to-source` as default;
+   */
+  emptyTranslationHandling: 'delete' | 'keep' | 'fallback-to-source';
 
   taskConfig?: II18nEditorTaskConfig | null;
 }
@@ -76,8 +111,9 @@ interface INgI18nExtSetting {
    */
   // dir: string;
   /**
-   * the target locales
-   *
+   * the target locales.
+   * The locale is a 5-char string, eg: 'zh-CN', 'en-US', 'ja-JP', 'th-TH', etc...
+   * 
    * @type {string[]}
    * @memberof INgI18nExtSetting
    */

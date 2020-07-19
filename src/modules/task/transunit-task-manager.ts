@@ -7,8 +7,14 @@ interface ICommandQueueItem {
   transUnit: i18n.TransUnit;
   hash: string;
   time: Date;
+  opt: ICommandOption;
   cb: (result: i18nWebView.TransUnitUpdateResult) => void;
   omcb: (result: i18nWebView.TransUnitOmittedResult) => void;
+}
+
+export interface ICommandOption {
+  keepIfEmpty: boolean;
+  needFallback: boolean;
 }
 
 export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
@@ -169,6 +175,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
 
   pushCommand(
     cmd: i18nWebView.TransUnitUpdateCommand,
+    cmdOpt: ICommandOption,
     eventSender: (result: i18nWebView.TransUnitUpdateResult) => void,
     omitEventSender: (result: i18nWebView.TransUnitOmittedResult) => void
   ) {
@@ -209,6 +216,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
           transUnit: transUnit,
           hash: cmd.hash,
           time: cmd.time,
+          opt: cmdOpt,
           cb: eventSender,
           omcb: omitEventSender,
         };
@@ -226,7 +234,8 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
   private _next(pack: string[]) {
     this.__executing__ = true;
     const reducer: Map<string, i18n.TransUnit[]> = new Map<string, i18n.TransUnit[]>();
-    const transUnits: i18n.TransUnit[] = [];
+    const transUnits: {t: i18n.TransUnit, opt: ICommandOption}[] = [];
+
     const distinctCmdCollection = pack.reduce<ICommandQueueItem[]>((arr, val) => {
       const cmd = this.queueItemByTransUnitKey[val];
       const rItem = reducer.get(cmd.hash);
@@ -236,7 +245,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
         reducer.set(cmd.hash, [cmd.transUnit]);
         arr.push(cmd);
       }
-      transUnits.push(cmd.transUnit);
+      transUnits.push({ t: cmd.transUnit, opt: cmd.opt });
       return arr;
     }, []);
     // dequeue
@@ -255,13 +264,20 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
           const {
             transUnitByMsgId, errors
           } = Xliff.loadTransUnits(content, '');
-          transUnits.forEach(t => {
-            const tar = transUnitByMsgId[t.key];
+          transUnits.forEach(tItem => {
+            const { t, opt } = tItem;
             const isEmpty = t.target === null || t.target === '';
             transUnitByMsgId[t.key] = t;
             if (isEmpty) {
-              // remove target
-              delete transUnitByMsgId[t.key];
+              t.state = 'needs-translation';
+              if (opt.needFallback) {
+                t.target = t.source;
+                t.target_identifier = t.source_identifier;
+                t.target_parts = t.source_parts;
+              } else if (!opt.keepIfEmpty) {
+                // remove target
+                delete transUnitByMsgId[t.key];
+              }
             }
           });
           const updatedTransUnits = Object.values(transUnitByMsgId);
@@ -274,7 +290,7 @@ export class EditorTransUnitUpdateTaskManager implements vscode.Disposable {
           reject(err);
         });
       }, () => {
-        this._writeTransUnits(transUnits).then(() => {
+        this._writeTransUnits(transUnits.map(i => i.t)).then(() => {
           resolve(true);
         }).catch((err) => {
           reject(err);

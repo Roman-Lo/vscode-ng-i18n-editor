@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import { FileUtils } from '../modules/common/file.util';
 import { Xliff } from '../modules/xliff/xliff';
 import { StringUtils } from '../modules/common/string.util';
-import { EditorTransUnitUpdateTaskManager } from '../modules/task/transunit-task-manager';
+import { EditorTransUnitUpdateTaskManager, ICommandOption } from '../modules/task/transunit-task-manager';
 import { ExtensionSettingManager, IExtChangedEventSubscription } from '../modules/setting/ext-setting-manager';
 import { ObjectUtils } from '../modules/common/object.util';
 
@@ -42,6 +41,10 @@ export class EditorCommandHandler implements vscode.Disposable {
     }
   } = {};
 
+  private get isTargetFileMode(): boolean {
+    return this.setting.editor.mode === 'target-file';
+  }
+
   private static readonly commandResultMap = {
     'list-xliff-files': 'list-xliff-files-loaded',
     'load-xliff-file': 'xliff-file-loaded',
@@ -62,6 +65,41 @@ export class EditorCommandHandler implements vscode.Disposable {
       this.setting = cur;
     });
     this.setting = settingManager.setting;
+  }
+
+  initTranslationFileWather(sourceFile: vscode.Uri, targetFile: vscode.Uri, sourceLocale: string, targetLocale: string) {
+    this.disposeFileWatchers();
+    const eventBase: Partial<i18nWebView.XliffFileUpdatedEvent> = {
+      canIgnoreEditorReload: false,
+      sourceFile: sourceFile.toString(),
+      targetFile: targetFile.toString(),
+      sourceLocale: sourceLocale,
+      targetlocale: targetLocale,
+    };
+
+    const tarRelPath = vscode.workspace.asRelativePath(targetFile);
+    const tarWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], tarRelPath), true, false, true
+    );
+    tarWatcher.onDidChange((e) => {
+      vscode.workspace.fs.stat(e).then(
+        (s) => {
+          EditorTransUnitUpdateTaskManager.getManager(sourceLocale, targetLocale, targetFile).then(manager => {
+            if (manager.lastWriteTime < s.mtime) {
+              this.sendXliffUpdatedEvent(eventBase, 'target');
+            }
+          }, (err) => {
+            console.warn(`[EditorCommandHandler] failed to get transunit task manager while target xliff changed: ${err}`);
+          });
+        },
+        (err) => {
+          console.warn(`[EditorCommandHandler] failed to get file stat: ${err}, file: ${e.toString()};`);
+        }
+      );
+
+    }, this._vs_subscriptions);
+
+    this._file_watchers = [tarWatcher];
   }
 
   initFileWatchers(sourceFile: vscode.Uri, targetFile: vscode.Uri, sourceMtime: number, sourceLocale: string, targetLocale: string) {
@@ -198,39 +236,61 @@ export class EditorCommandHandler implements vscode.Disposable {
   }
 
   loadXliffFile(command: i18nWebView.LoadXliffFileCommand) {
+    const regardlessOfSource = this.isTargetFileMode;
     const tarLocale = command.locale;
-    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, tarLocale);
+    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, tarLocale, this.setting.editor.translationFileNamePattern);
 
-    const fileUri = vscode.Uri.parse(command.xliffFile);
     const targetUri = vscode.Uri.parse(targetXliff);
+    const sourceUri = vscode.Uri.parse(command.xliffFile);
 
-    const tarContentPromise = new Promise<string | Uint8Array>((resovle, reject) => {
-      vscode.workspace.fs.stat(targetUri).then(() => {
+    const tarContentPromise = new Promise<string | { data: Uint8Array, mtime: number }>((resovle, reject) => {
+      vscode.workspace.fs.stat(targetUri).then((tarStat) => {
         vscode.workspace.fs.readFile(targetUri).then((data) => {
-          resovle(data);
+          resovle({ data, mtime: tarStat.mtime });
         }, (err) => {
           reject(err);
         });
       }, () => { resovle('NOT-EXISTS'); });
     });
 
-    Promise.all(
-      [
-        vscode.workspace.fs.readFile(fileUri),
-        tarContentPromise,
-        vscode.workspace.fs.stat(fileUri),
-      ]
-    ).then((fileReadResults) => {
-      let sourceContent = new TextDecoder('utf8').decode(fileReadResults[0]);
-      let targetContent = (fileReadResults[1] instanceof Uint8Array) ?
-        new TextDecoder('utf8').decode(fileReadResults[1]) :
-        fileReadResults[1];
-      let result: i18nWebView.LoadXliffFileResultEvent;
-      const { transUnitByMsgId, errors, sourceLocale } = Xliff.loadTransUnits(sourceContent, '');
-      if (errors && errors.length > 0 || !sourceLocale) {
-        const errMsg = `failed to load trans units from ${fileUri.fsPath}. Errors: ${errors?.join('; ')}`;
-        result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
-      } else {
+    let promises = [
+      tarContentPromise,
+      ...(regardlessOfSource ? [] : [
+        vscode.workspace.fs.readFile(sourceUri),
+        vscode.workspace.fs.stat(sourceUri),
+      ])
+    ];
+    Promise
+      .all(promises as any)
+      .then((fileReadResults) => {
+        let result: i18nWebView.LoadXliffFileResultEvent;
+
+        let targetContent = 'NOT-EXISTS';
+        let targetMtime = 0;
+        if (fileReadResults[0] !== 'NOT-EXISTS') {
+          const { data, mtime } = (fileReadResults[0] as any);
+          targetContent = new TextDecoder('utf8').decode(data);
+          targetMtime = mtime;
+        }
+
+        let sourceMtime = 0;
+        let sourceLocale: string | null = null;
+        let transUnitByMsgId: { [msgId: string]: i18n.TransUnit } = {};
+        if (!regardlessOfSource) {
+          sourceMtime = (fileReadResults[2] as vscode.FileStat).mtime;
+          let sourceContent = new TextDecoder('utf8').decode(fileReadResults[1] as Uint8Array);
+          const { transUnitByMsgId: srcTransUnits, errors, sourceLocale: srcLocale } = Xliff.loadTransUnits(sourceContent, '');
+          if (errors && errors.length > 0 || !srcLocale) {
+            const errMsg = `failed to load trans units from ${sourceUri.fsPath}. Errors: ${errors?.join('; ')}`;
+            result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+            return this.sendMessage('xliff-file-loaded', result!);
+          }
+          transUnitByMsgId = srcTransUnits;
+          sourceLocale = srcLocale;
+        } else {
+          sourceMtime = targetMtime;
+        }
+
         let hasError = false;
         let resultTransUnits: i18n.TransUnit[] = [];
         if (targetContent !== 'NOT-EXISTS') {
@@ -240,8 +300,12 @@ export class EditorCommandHandler implements vscode.Disposable {
             sourceLocale: tSourceLocale,
             targetLocale: tTargetLocale,
           } = Xliff.loadTransUnits(targetContent, '');
+          if (regardlessOfSource) {
+            sourceLocale = tSourceLocale;
+            transUnitByMsgId = translationById;
+          }
           if (tErrors && tErrors.length > 0) {
-            const errMsg = `failed to load translations from ${targetXliff}. Errors: ${errors?.join('; ')}`;
+            const errMsg = `failed to load translations from ${targetXliff}. Errors: ${tErrors?.join('; ')}`;
             result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
             hasError = true;
           } else if (tSourceLocale !== sourceLocale) {
@@ -261,52 +325,58 @@ export class EditorCommandHandler implements vscode.Disposable {
                 transUnit.target_parts = transItem.target_parts ?? [];
                 transUnit.target_identifier = transItem.target_identifier;
                 transUnit.state = transItem.state ?? 'needs-translation';
-                // detect signed-off items and see if further action is needed.
-                if (transUnit.state === 'signed-off') {
-                  // compare transunit source
-                  const srcItem = {
-                    identifer: transUnit.source_identifier,
-                    meaning: transUnit.meaning,
-                    description: transUnit.description,
-                    context: transUnit.contextGroups.sort((a, b) => {
-                      const cA = `${a.sourceFile}#${a.lineNumber}`;
-                      const cB = `${b.sourceFile}#${b.lineNumber}`;
-                      return cA.localeCompare(cB);
-                    }),
-                  };
-                  const tarItem = {
-                    identifer: transItem.source_identifier,
-                    meaning: transItem.meaning,
-                    description: transItem.description,
-                    context: transItem.contextGroups.sort((a, b) => {
-                      const cA = `${a.sourceFile}#${a.lineNumber}`;
-                      const cB = `${b.sourceFile}#${b.lineNumber}`;
-                      return cA.localeCompare(cB);
-                    }),
-                  };
+                if (regardlessOfSource) {
+                  if (transUnit.target_parts.length === 0) {
+                    transUnit.state = 'needs-translation';
+                  }
+                } else {
+                  // detect signed-off items and see if further action is needed.
+                  if (transUnit.state === 'signed-off') {
+                    // compare transunit source
+                    const srcItem = {
+                      identifer: transUnit.source_identifier,
+                      meaning: transUnit.meaning,
+                      description: transUnit.description,
+                      context: transUnit.contextGroups.sort((a, b) => {
+                        const cA = `${a.sourceFile}#${a.lineNumber}`;
+                        const cB = `${b.sourceFile}#${b.lineNumber}`;
+                        return cA.localeCompare(cB);
+                      }),
+                    };
+                    const tarItem = {
+                      identifer: transItem.source_identifier,
+                      meaning: transItem.meaning,
+                      description: transItem.description,
+                      context: transItem.contextGroups.sort((a, b) => {
+                        const cA = `${a.sourceFile}#${a.lineNumber}`;
+                        const cB = `${b.sourceFile}#${b.lineNumber}`;
+                        return cA.localeCompare(cB);
+                      }),
+                    };
 
-                  const diffs = ObjectUtils.diff(srcItem, tarItem);
-                  if (diffs.length > 0) {
-                    // let hasContextDiff = false;
-                    // let hasMainFieldDiff = false;
-                    // diffs.forEach(dItem => {
-                    //   if (dItem.path.startsWith('context')) {
-                    //     hasContextDiff = true;
-                    //   } else {
-                    //     hasMainFieldDiff = true;
-                    //   }
-                    // });
-                    transUnit.state = 'translated'; // unlock the signed-off state
+                    const diffs = ObjectUtils.diff(srcItem, tarItem);
+                    if (diffs.length > 0) {
+                      // let hasContextDiff = false;
+                      // let hasMainFieldDiff = false;
+                      // diffs.forEach(dItem => {
+                      //   if (dItem.path.startsWith('context')) {
+                      //     hasContextDiff = true;
+                      //   } else {
+                      //     hasMainFieldDiff = true;
+                      //   }
+                      // });
+                      transUnit.state = 'translated'; // unlock the signed-off state
+                    }
                   }
                 }
-              } else {                
+              } else {
                 transUnit.state = 'needs-translation';
               }
               return transUnit;
             });
           }
         } else {
-          resultTransUnits = Object.values(transUnitByMsgId).map(v => { 
+          resultTransUnits = Object.values(transUnitByMsgId).map(v => {
             v.state = 'needs-translation';
             return v;
           });
@@ -314,21 +384,26 @@ export class EditorCommandHandler implements vscode.Disposable {
         if (!hasError) {
           result = {
             ...this.buildCallbackResultBase('xliff-file-loaded', command),
-            xliffFile: fileUri.toString(),
-            sourceLangCode: sourceLocale,
+            xliffFile: sourceUri.toString(),
+            sourceLangCode: sourceLocale!,
             targetLangCode: tarLocale,
             transUnits: resultTransUnits,
           };
-
-          this.initFileWatchers(fileUri, targetUri, fileReadResults[2].mtime, sourceLocale, tarLocale);
+          
+          if (regardlessOfSource) {
+            this.initTranslationFileWather(sourceUri, targetUri, sourceLocale!, tarLocale);
+          } else {
+            this.initFileWatchers(sourceUri, targetUri, sourceMtime, sourceLocale!, tarLocale);
+          }
         }
-      }
-      this.sendMessage('xliff-file-loaded', result!);
-    }).catch((err) => {
-      const errMsg = `failed to read ${fileUri.fsPath}. Errors: ${err}`;
-      const result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
-      this.sendMessage('xliff-file-loaded', result);
-    });
+
+        this.sendMessage('xliff-file-loaded', result!);
+      })
+      .catch((err) => {
+        const errMsg = `Error while loading xliff content. Errors: ${err}`;
+        const result = this.buildErrorCallbackResult('xliff-file-loaded', command, errMsg) as any;
+        this.sendMessage('xliff-file-loaded', result);
+      });
   }
 
   loadTransUnitCodeCtx(command: i18nWebView.LoadTransUnitCodeContextCommand) {
@@ -336,7 +411,7 @@ export class EditorCommandHandler implements vscode.Disposable {
   }
 
   updateTransUnit(command: i18nWebView.TransUnitUpdateCommand) {
-    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, command.targetLocale);
+    const targetXliff = FileUtils.getCorrespondingTranslationFile(command.xliffFile, command.targetLocale, this.setting.editor.translationFileNamePattern);
     const xliffUri = vscode.Uri.parse(targetXliff);
     EditorTransUnitUpdateTaskManager
       .getManager(command.sourceLocale, command.targetLocale, xliffUri)
@@ -344,6 +419,7 @@ export class EditorCommandHandler implements vscode.Disposable {
         (manager) => {
           manager.pushCommand(
             command,
+            this.buildTransUnitUpdateCmdOpt(),
             (result: i18nWebView.TransUnitUpdateResult) => {
               this.sendMessage('trans-unit-updated', result);
             },
@@ -481,5 +557,23 @@ export class EditorCommandHandler implements vscode.Disposable {
       message: errorMessage,
     };
     return result;
+  }
+
+  private buildTransUnitUpdateCmdOpt(): ICommandOption {
+    const opt: ICommandOption = {
+      keepIfEmpty: false,
+      needFallback: false,
+    };
+    const { emptyTranslationHandling } = this.setting.editor;
+    if (emptyTranslationHandling === 'delete') {
+      return opt;
+    } else if (emptyTranslationHandling === 'keep') {
+      opt.keepIfEmpty = true;
+      opt.needFallback = false;
+    } else if (emptyTranslationHandling === 'fallback-to-source') {
+      opt.keepIfEmpty = true;
+      opt.needFallback = true;
+    }
+    return opt;
   }
 }

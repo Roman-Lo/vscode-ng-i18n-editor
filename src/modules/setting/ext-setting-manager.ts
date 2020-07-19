@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ObjectUtils } from '../common/object.util';
 import { CONST_EXTENSION_SETTING_FILE } from '../../constants';
+import { FileUtils } from '../common/file.util';
 
 const G_DefaultSetting: INgI18nExtSetting = {
   tm: { // TODO: translation memory feature is not supported yet
@@ -12,6 +13,9 @@ const G_DefaultSetting: INgI18nExtSetting = {
   locales: ['en-US'],
   editor: {
     translationSaveOn: 'blur',
+    mode: 'default',
+    emptyTranslationHandling: 'delete',
+    translationFileNamePattern: '${name}(${lang}-${region})',
     messageLocations: [
       'src/locale/messages.xlf'
     ],
@@ -48,6 +52,8 @@ export class ExtensionSettingManager implements vscode.Disposable {
     }
   } = {};
 
+  private _allFiles: { [key: string]: { filename: string, targetLocale?: string } } = {};
+
   private _setting: INgI18nExtSetting;
 
   static create(context: vscode.ExtensionContext): Thenable<ExtensionSettingManager> {
@@ -79,12 +85,13 @@ export class ExtensionSettingManager implements vscode.Disposable {
   }
 
   private constructor(context: vscode.ExtensionContext, setting: INgI18nExtSetting) {
-    this._setting = ObjectUtils.clone(setting);
+    this._setting = this.checkAndPopulateDefaults(ObjectUtils.clone(setting));
     this.init();
     context.subscriptions.push(this);
   }
 
   private init() {
+    this._allFiles = this.calculateAllFiles();
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], CONST_EXTENSION_SETTING_FILE), true, false, true);
     watcher.onDidChange(this.onExtentionSettingChange.bind(this), this._vs_subscriptions);
@@ -96,6 +103,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
     const diffs = ObjectUtils.diff(cur, old);
     if (diffs.length > 0) {
       this._setting = cur;
+      this._allFiles = this.calculateAllFiles();
       console.log(`[ExtensionSettingManager] setting updated.`, { cur, old });
       this.sendChangeEventToSubscribers(cur, old);
     }
@@ -107,6 +115,32 @@ export class ExtensionSettingManager implements vscode.Disposable {
     return new ExtChangedEventSubscription(counter, (c: number) => {
       this.removeSubscriber(c);
     });
+  }
+
+  getFile(file: string): { filename: string, targetLocale?: string } | null {
+    const reuslt = this._allFiles[file];
+    if (reuslt) {
+      return ObjectUtils.clone(reuslt);
+    }
+    return null;
+  }
+
+  private calculateAllFiles(): { [key: string]: { filename: string, targetLocale?: string } } {
+    const locales = this._setting.locales;
+    const { messageLocations, mode, translationFileNamePattern } = this._setting.editor;
+    const files: { [key: string]: { filename: string, targetLocale?: string } } = {};
+    messageLocations.forEach(x => {
+      const msgUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, x);
+      const file = msgUri.toString();
+      if (mode === 'default') {
+        files[x] = { filename: file };
+      }
+      locales.forEach(locale => {
+        const fileName = FileUtils.getCorrespondingTranslationFile(x, locale, translationFileNamePattern);
+        files[fileName] = { filename: file, targetLocale: locale };
+      });
+    });
+    return files;
   }
 
   private removeSubscriber(counter: number) {
@@ -127,7 +161,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
         }
         try {
           const jsonStr = new TextDecoder("utf-8").decode(content);
-          const cur: INgI18nExtSetting = JSON.parse(jsonStr);
+          const cur: INgI18nExtSetting = this.checkAndPopulateDefaults(JSON.parse(jsonStr));
           this.update(cur);
         } catch (e) {
           console.error(`[onExtentionSettingChange] failed to parse setting data: ${e}`, e, content);
@@ -137,6 +171,26 @@ export class ExtensionSettingManager implements vscode.Disposable {
         console.error(`[onExtentionSettingChange] failed to read ${e.fsPath}: err`);
       }
     );
+  }
+
+  private checkAndPopulateDefaults(setting: INgI18nExtSetting): INgI18nExtSetting {
+    setting.tm = ObjectUtils.clone(G_DefaultSetting.tm);
+    setting.locales = setting.locales || ObjectUtils.clone(G_DefaultSetting.locales);
+    setting.editor = setting.editor || ObjectUtils.clone(G_DefaultSetting.editor);
+    if (!setting.editor.translationFileNamePattern) {
+      setting.editor.translationFileNamePattern = G_DefaultSetting.editor.translationFileNamePattern;
+    }
+    if (!setting.editor.mode) {
+      setting.editor.mode = G_DefaultSetting.editor.mode;
+    }
+    if (!setting.editor.emptyTranslationHandling) {
+      if (setting.editor.mode === 'target-file') {
+        setting.editor.emptyTranslationHandling = 'fallback-to-source';
+      } else {
+        setting.editor.emptyTranslationHandling = 'delete';
+      }
+    }
+    return setting;
   }
 
   private sendChangeEventToSubscribers(cur: INgI18nExtSetting, old: INgI18nExtSetting) {

@@ -4,6 +4,7 @@ import Vue from 'vue';
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
 declare var defaultMessageLocation: string | null;
+declare var defaultMessageLocale: string | null;
 let vscode: Webview | null = null;
 try {
   if (isInVsCodeIDE) {
@@ -26,7 +27,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
     }
   }
 
-  console.log('loaded!');
+  console.log('loaded!', defaultMessageLocation, defaultMessageLocale);
 
   let _transUnits: i18nWebView.ITransUnitView[] = [];
   let _transUnitsByKey: { [key: string]: i18nWebView.ITransUnitView } = {};
@@ -37,7 +38,8 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
     xliffFiles: [],
     locales: [],
     selectedXliffFile: defaultMessageLocation ?? null,
-    selectedTargetLocale: null,
+    selectedTargetLocale: defaultMessageLocale ?? null,
+    messageListed: false,
     xliffFileLoading: false,
     settings: {
       mode: 'git-control',
@@ -84,6 +86,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
       totalAmount: 0,
       pageNum: 1,
       pageSize: 50,
+      numOfPage: 0,
     },
     statusBar: {
       counters: {
@@ -191,15 +194,23 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
           top: 0,
           behavior: 'smooth'
         });
-        if (pageSize) {
+        let needRecalculateNumOfPage = false;
+        if (pageSize && pageSize !== this.pagination.pageSize) {
           this.pagination.pageSize = pageSize;
+          needRecalculateNumOfPage = true;
         }
         if (_filteredResult.length !== this.pagination.totalAmount) {
           this.pagination.totalAmount = _filteredResult.length;
+          needRecalculateNumOfPage = true;
         }
+        if (needRecalculateNumOfPage) {
+          this.pagination.numOfPage = Math.ceil(this.pagination.totalAmount / this.pagination.pageSize);
+        }
+        
         if (pageNum !== this.pagination.pageNum) {
           this.pagination.pageNum = pageNum;
         }
+
         this.transUnitTable.transUnits = paginateData(_filteredResult, this.pagination.pageNum, this.pagination.pageSize);
       },
 
@@ -268,13 +279,18 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
             // toggle signoff
             this.toggleSignOff(record);
             // seeks next item
+            let needNextPage = true;
             for (let i = index + 1; i < this.transUnitTable.transUnits.length; i++) {
               const nextTransUnit = this.transUnitTable.transUnits[i];
               if (nextTransUnit.state === 'signed-off') {
                 continue;
               }
               this.startTranslation(nextTransUnit, $event);
+              needNextPage = false;
               break;
+            }
+            if (needNextPage && pageData.pagination.numOfPage > pageData.pagination.pageNum) {
+              this.onPageChange(pageData.pagination.pageNum + 1);
             }
           }
         } else {
@@ -486,6 +502,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
 
       // command caller
       loadXliffFiles() {
+        this.messageListed = false;
         sendCommand('list-xliff-files', Object.assign(generateCommandBase(), {
           dir: '.',
         }), true);
@@ -594,7 +611,11 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
         pageData.pagination.totalAmount = 0;
         pageData.pagination.pageNum = 1;
       }
-    },
+      pageData.messageListed = true;
+      if (pageData.selectedXliffFile && pageData.selectedTargetLocale) {
+        app.loadXliffContent();
+      }
+    }, 
     'xliff-file-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['xliff-file-loaded']) => {
       if (
         pageData.selectedXliffFile === data.xliffFile &&

@@ -64,7 +64,7 @@ Three types of trigger type that tell the editor when to save your translation. 
 
 **Only support `blur` by far**.
 
-#### `editor.messageLocations`
+#### `editor.messageLocations: string[]`
 
 The message locations is the location collection for the Angular Compiler extracted xliff files. They should
 ends with `.xliff` or `.xlf`.
@@ -76,6 +76,38 @@ ends with `.xliff` or `.xlf`.
   }
 }
 ```
+
+#### `editor.translationFileNamePattern: string`
+
+The pattern to locate the target translation file. **The default value is `${name}(${lang}-${region})`**.
+
+- `${name}`: the source xliff file name;
+- `${lang}`: the target language;
+- `${region}`： the region where the language in use.
+
+_`${lang}` and `${region}` is the consist parts of [LCID](https://www.science.co.il/language/Locale-codes.php)_
+
+#### `editor.mode: 'default' | 'target-file'`
+
+Editor mode.
+
+- The `default` mode:
+
+  Use the xliff specify in the `messageLocations` as source and auto generate the target translation xliff based on the given `translationFileNamePattern`;
+
+- The `target-file` mode:
+
+  Edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)
+
+#### `editor.emptyTranslationHandling: 'delete' | 'keep' | 'fallback-to-source'`
+
+Determine how to handle empty translation.
+
+- `delete`: delete the trans unit in the target xliff when empty;
+- `keep`: keep the trans unit in the target xliff and mark as `need-translation`;
+- `fallback-to-source`: fill the translation target using the source string and mark as `need-translation`;
+
+***When editor is in `default` mode, this option is set `delete` as default; When editor is in `target-file` mode, this option is set `fallback-to-source` as default;***
 
 #### Task Config Setting
 

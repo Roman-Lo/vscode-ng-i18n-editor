@@ -208,6 +208,7 @@ declare namespace i18nWebView // i18n-webview
     };
     selectedXliffFile: string | null;
     selectedTargetLocale: string | null;
+    messageListed: boolean;
     xliffFileLoading: boolean;
     filterOptions: IWebViewTableFilter;
     transUnitTable: IWebViewTransUnitTableData;
@@ -215,6 +216,7 @@ declare namespace i18nWebView // i18n-webview
       totalAmount: number;
       pageSize: number;
       pageNum: number;
+      numOfPage: number;
     };
     statusBar: IWebViewStatusBar;
   }

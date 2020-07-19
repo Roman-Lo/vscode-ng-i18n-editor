@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ObjectUtils } from '../common/object.util';
 import { CONST_EXTENSION_SETTING_FILE } from '../../constants';
+import { FileUtils } from '../common/file.util';
 
 const G_DefaultSetting: INgI18nExtSetting = {
   tm: { // TODO: translation memory feature is not supported yet
@@ -51,6 +52,8 @@ export class ExtensionSettingManager implements vscode.Disposable {
     }
   } = {};
 
+  private _allFiles: { [key: string]: { filename: string, targetLocale?: string } } = {};
+
   private _setting: INgI18nExtSetting;
 
   static create(context: vscode.ExtensionContext): Thenable<ExtensionSettingManager> {
@@ -88,6 +91,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
   }
 
   private init() {
+    this._allFiles = this.calculateAllFiles();
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], CONST_EXTENSION_SETTING_FILE), true, false, true);
     watcher.onDidChange(this.onExtentionSettingChange.bind(this), this._vs_subscriptions);
@@ -99,6 +103,7 @@ export class ExtensionSettingManager implements vscode.Disposable {
     const diffs = ObjectUtils.diff(cur, old);
     if (diffs.length > 0) {
       this._setting = cur;
+      this._allFiles = this.calculateAllFiles();
       console.log(`[ExtensionSettingManager] setting updated.`, { cur, old });
       this.sendChangeEventToSubscribers(cur, old);
     }
@@ -110,6 +115,32 @@ export class ExtensionSettingManager implements vscode.Disposable {
     return new ExtChangedEventSubscription(counter, (c: number) => {
       this.removeSubscriber(c);
     });
+  }
+
+  getFile(file: string): { filename: string, targetLocale?: string } | null {
+    const reuslt = this._allFiles[file];
+    if (reuslt) {
+      return ObjectUtils.clone(reuslt);
+    }
+    return null;
+  }
+
+  private calculateAllFiles(): { [key: string]: { filename: string, targetLocale?: string } } {
+    const locales = this._setting.locales;
+    const { messageLocations, mode, translationFileNamePattern } = this._setting.editor;
+    const files: { [key: string]: { filename: string, targetLocale?: string } } = {};
+    messageLocations.forEach(x => {
+      const msgUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, x);
+      const file = msgUri.toString();
+      if (mode === 'default') {
+        files[x] = { filename: file };
+      }
+      locales.forEach(locale => {
+        const fileName = FileUtils.getCorrespondingTranslationFile(x, locale, translationFileNamePattern);
+        files[fileName] = { filename: file, targetLocale: locale };
+      });
+    });
+    return files;
   }
 
   private removeSubscriber(counter: number) {

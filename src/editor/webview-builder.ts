@@ -115,15 +115,20 @@ export class EditorWebViewBuilder {
     // const htmlFilePath = vscode.Uri.file(path.join(ctx.extensionPath, 'out', 'editor', 'index.html'));
     // const html = fs.readFileSync(htmlFilePath.fsPath, 'utf8');
     const htmlContent = html;
-    const parsedHTML = htmlContent
+    let parsedHTML = htmlContent
       .replace('#main#', mainJsSrc.toString())
       .replace('#vueJsSrc#', vueJsSrc.toString())
       .replace('#vueAntdCssSrc#', vueAntdCssSrc.toString())
       .replace('#vueAntdJsSrc#', vueAntdJsSrc.toString())
       .replace('#momentJsSrc#', momentJsSrc.toString())
-      .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString())
-      .replace('#defaultMessageLocation#', defaultMessageLocation ?? 'null')
-      .replace('#defaultMessageLocale#', defaultMessageLocale ?? 'null');
+      .replace('#vueDashEventJsSrc#', vueDashEventJsSrc.toString());
+
+    if (defaultMessageLocation) {
+      parsedHTML = parsedHTML.replace('#defaultMessageLocation#', defaultMessageLocation);
+    }
+    if (defaultMessageLocale) {
+      parsedHTML = parsedHTML.replace('#defaultMessageLocale#', defaultMessageLocale);
+    }
 
     return parsedHTML;
   }

@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.1]
+
+- Fix: default message locale not set correctly.
+
 ## [0.2.0]
 
 - Editor now supports edit for a single xliff file (Related issue #4).

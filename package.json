@@ -2,7 +2,7 @@
   "name": "vscode-ng-i18n-editor",
   "displayName": "Angular I18n Editor",
   "description": "An editor for angular generated xliff translation file.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "Roman-Lo",
   "license": "MIT",
   "engines": {

@@ -2,7 +2,7 @@
 
 ## [NEXT]
 
-- Add: JSON schema suport for `.ngI18nconfig`.
+- Add: JSON schema support for `.ngI18nconfig`.
 
 ## [0.2.1]
 

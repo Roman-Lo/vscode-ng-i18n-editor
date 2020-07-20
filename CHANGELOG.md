@@ -1,5 +1,9 @@
 # Change Log
 
+## [NEXT]
+
+- Add: JSON schema suport for `.ngI18nconfig`.
+
 ## [0.2.1]
 
 - Fix: default message locale not set correctly.

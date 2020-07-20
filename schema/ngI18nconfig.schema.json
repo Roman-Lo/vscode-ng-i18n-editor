@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "https://github.com/Roman-Lo/vscode-ng-i18n-editor/schema/ngI18nconfig.schema.json",
+  "title": "Angular I18n Editor Configuration",
+  "description": "The configuration file for `vscode-ng-i18n-editor` VSCode Extension",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "locales"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "locales": {
+      "title": "The target LCID collection",
+      "description": "LCID is a string contains language code and region info, eg: 'zh-CN', 'en-US', 'ja-JP', 'th-TH', etc...",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "./locale.schema.json#/$defs/lcid"
+      }
+    },
+    "editor": {
+      "$ref": "#/$defs/editorConfig"
+    }
+  },
+  "$defs": {
+    "editorConfig": {
+      "title": "I18n Editor Configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translationSaveOn": {
+          "description": "Defines when to save the translation.",
+          "oneOf": [
+            {
+              "const": "blur",
+              "description": "Translation will save on blur"
+            }
+          ],
+          "default": "blur"
+        },
+        "messageLocations": {
+          "type": "array",
+          "description": "The source message (angular-cli generated file) locations related to the current vscode workspace.",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "translationFileNamePattern": {
+          "description": "Defines how the extension to get the corresponding translation file name. The default value is '${name}(${lang}-${region})', which:\n* `${name}`: stands for the source xliff file name;\n* `${lang}`: stands for the language;\n* `${region}`： stands for the region where the language in use.\nYou can define your own pattern by using the above placeholder tags.",
+          "type": "string",
+          "default": "${name}(${lang}-${region})"
+        },
+        "mode": {
+          "description": "editor mode.",
+          "oneOf": [
+            {
+              "const": "default",
+              "description": "use the xliff specify in the `messageLocations` as source and auto generate the target translation xliff based on the given `translationFileNamePattern`"
+            },
+            {
+              "const": "target-file",
+              "description": "edit directly on the target xliff (based on the `messageLocations` and the given `translationFileNamePattern`)"
+            }
+          ],
+          "default": "default"
+        },
+        "emptyTranslationHandling": {
+          "description": "Determine how to handle empty translation. \n If not specified, extension will set this to: \n * `delete`: when editor is in `default` mode;\n * `fallback-to-source`: when editor is in `target-file` mode.",
+          "oneOf": [
+            {
+              "const": "delete",
+              "description": "delete the trans unit in the target xliff when empty"
+            },
+            {
+              "const": "keep",
+              "description": "keep the trans unit in the target xliff and mark as `need-translation`"
+            },
+            {
+              "const": "fallback-to-source",
+              "description": "fill the translation target using the source string and mark as `need-translation`"
+            }
+          ]
+        },
+        "taskConfig": {
+          "$ref": "#/$defs/editorTaskConfig"
+        }
+      },
+      "required": [
+        "messageLocations"
+      ],
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "default"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "emptyTranslationHandling": {
+            "default": "delete"
+          }
+        }
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "mode": {
+              "const": "target-file"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "emptyTranslationHandling": {
+              "default": "fallback-to-source"
+            }
+          }
+        }
+      }
+    },
+    "editorTaskConfig": {
+      "type": "object",
+      "description": "Configuration for editor task manager.",
+      "additionalProperties": false,
+      "properties": {
+        "intervalSeconds": {
+          "description": "the frequency of task checking (default 5 seconds)",
+          "type": "number",
+          "default": 5
+        },
+        "itemEachPack": {
+          "description": "the maximum command size for each task execution",
+          "type": "number",
+          "default": 10
+        }
+      }
+    }
+  }
+}

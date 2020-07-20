@@ -30,6 +30,12 @@
         "command": "vscode-ng-i18n-editor.openEditor",
         "title": "Angular I18n Editor: Open"
       }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".ngI18nconfig",
+        "url": "./schema/ngI18nconfig.schema.json"
+      }
     ]
   },
   "scripts": {

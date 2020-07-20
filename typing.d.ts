@@ -111,8 +111,8 @@ interface INgI18nExtSetting {
    */
   // dir: string;
   /**
-   * the target locales.
-   * The locale is a 5-char string, eg: 'zh-CN', 'en-US', 'ja-JP', 'th-TH', etc...
+   * The target LCID collection.
+   * LCID is a string contains language code and region info, eg: 'zh-CN', 'en-US', 'ja-JP', 'th-TH', etc...
    * 
    * @type {string[]}
    * @memberof INgI18nExtSetting

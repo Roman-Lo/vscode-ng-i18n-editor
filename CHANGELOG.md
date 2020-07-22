@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.2]
+
+- Fix: Trans unit placeholder value handling issue #10
+
 ## [0.2.1]
 
 - Fix: default message locale not set correctly.

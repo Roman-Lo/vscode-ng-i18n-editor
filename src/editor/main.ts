@@ -785,22 +785,22 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
     const standalones: { [name: string]: number } = {};
     phTagParts?.forEach(p => {
       if (p.key) {
-        if (p.key.startsWith('START_TAG_')) {
-          let type = p.key.replace('START_TAG_', '');
+        if (p.key.startsWith('START_')) {
+          let type = p.key.replace('START_', '');
           let tar = pairs[type] || {
             startCount: 0,
             closeCount: 0,
             startTag: p.key,
-            closeTag: `CLOSE_TAG_${type}`
+            closeTag: `CLOSE_${type}`
           };
           tar.startCount++;
           pairs[type] = tar;
-        } else if (p.key.startsWith('CLOSE_TAG_')) {
-          let type = p.key.replace('CLOSE_TAG_', '');
+        } else if (p.key.startsWith('CLOSE_')) {
+          let type = p.key.replace('CLOSE_', '');
           let tar = pairs[type] || {
             startCount: 0,
             closeCount: 0,
-            startTag: `START_TAG_${type}`,
+            startTag: `START_${type}`,
             closeTag: p.key
           };
           tar.closeCount++;

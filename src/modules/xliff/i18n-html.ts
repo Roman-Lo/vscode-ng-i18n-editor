@@ -90,7 +90,7 @@ class I18nHtmlPartParser implements mlAst.Visitor {
       const icuContent = element.attrs.find(x => x.name === 'equiv-text')?.value;
       placeContent = `${phId}:${icuContent}`;
     } else if (
-      phId?.startsWith('INTERPOLATION') || phId?.startsWith('START_TAG_') || phId?.startsWith('CLOSE_TAG_')
+      phId?.startsWith('INTERPOLATION') || phId?.startsWith('START_') || phId?.startsWith('CLOSE_')
     ) {
       placeContent = phId;
     }

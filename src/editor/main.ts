@@ -1,11 +1,13 @@
 import * as antd from 'ant-design-vue';
 import { Webview } from 'vscode';
 import Vue from 'vue';
+import { ModalConfirm } from 'ant-design-vue/types/modal';
 declare var isInVsCodeIDE: boolean;
 declare var transUnitTableColumns: { [key: string]: any }[];
 declare var defaultMessageLocation: string | null;
 declare var defaultMessageLocale: string | null;
 let vscode: Webview | null = null;
+let confirmMdl: ModalConfirm | null = null;
 try {
   if (isInVsCodeIDE) {
     vscode = acquireVsCodeApi();
@@ -206,7 +208,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
         if (needRecalculateNumOfPage) {
           this.pagination.numOfPage = Math.ceil(this.pagination.totalAmount / this.pagination.pageSize);
         }
-        
+
         if (pageNum !== this.pagination.pageNum) {
           this.pagination.pageNum = pageNum;
         }
@@ -615,7 +617,7 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
       if (pageData.selectedXliffFile && pageData.selectedTargetLocale) {
         app.loadXliffContent();
       }
-    }, 
+    },
     'xliff-file-loaded': (data: i18nWebView.I18nTranslateWebViewCommandMap['xliff-file-loaded']) => {
       if (
         pageData.selectedXliffFile === data.xliffFile &&
@@ -701,19 +703,21 @@ export function bootstrap(MOCK_DATA: i18nWebView.IWebViewPageData) {
         } else {
           message = `The target message file (${targetFile}) has been modified unexpectedly. The page need to reload to get the updated data. Thus, all the unsave changes will be disgarded.`;
         }
-        // reload is needed！
-        app.$warning({
-          title: 'File Modification Notice',
-          content: message,
-          onOk() {
-            app.loadXliffContent();
-            // let cmdBase = generateCommandBase();
-            // sendCommand('load-xliff-file', Object.assign(cmdBase, {
-            //   xliffFile: data.sourceFile,
-            //   locale: targetlocale
-            // }), true);
-          }
-        });
+        if (confirmMdl !== null) {
+          confirmMdl.update({
+            content: message,
+          });
+        } else {
+          // reload is needed！
+          confirmMdl = app.$warning({
+            title: 'File Modification Notice',
+            content: message,
+            onOk() {
+              app.loadXliffContent();
+              confirmMdl = null;
+            }
+          });
+        }
       }
     },
 

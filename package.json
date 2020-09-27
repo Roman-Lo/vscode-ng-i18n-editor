@@ -31,6 +31,22 @@
         "title": "Angular I18n Editor: Open"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceExtname == .xlf",
+          "command": "vscode-ng-i18n-editor.openEditor",
+          "group": "1_modification@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .xlf",
+          "command": "vscode-ng-i18n-editor.openEditor",
+          "group": "1_modification@1"
+        }
+      ]
+    },
     "jsonValidation": [
       {
         "fileMatch": ".ngI18nconfig",
